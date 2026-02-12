@@ -883,7 +883,11 @@ class BaseClient {
   async loadHistory(conversationId, parentMessageId = null) {
     logger.debug('[BaseClient] Loading history:', { conversationId, parentMessageId });
 
-    const messages = (await getMessages({ conversationId })) ?? [];
+    const tenantId = this.options?.req?.user?.tenantId;
+    const messages = (await getMessages({
+      conversationId,
+      ...(tenantId ? { tenantId } : {}),
+    })) ?? [];
 
     if (messages.length === 0) {
       return [];
@@ -965,7 +969,11 @@ class BaseClient {
     const existingConvo =
       this.fetchedConvo === true
         ? null
-        : await getConvo(this.options?.req?.user?.id, message.conversationId);
+        : await getConvo(
+            this.options?.req?.user?.id,
+            message.conversationId,
+            this.options?.req?.user?.tenantId,
+          );
 
     const unsetFields = {};
     const exceptions = new Set(['spec', 'iconURL']);
@@ -1402,6 +1410,9 @@ class BaseClient {
       const files = await getFiles(
         {
           file_id: { $in: fileIds },
+          ...(this.options?.req?.user?.tenantId
+            ? { tenantId: this.options.req.user.tenantId }
+            : {}),
         },
         {},
         {},

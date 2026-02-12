@@ -953,6 +953,47 @@ export function getBanner(): Promise<t.TBannerResponse> {
   return request.get(endpoints.banner());
 }
 
+/* Tenant */
+export function getTenantSite(): Promise<t.TTenantSite | null> {
+  return request.get(endpoints.tenantSite());
+}
+
+export function upsertTenantSite(payload: t.TTenantSiteRequest): Promise<t.TTenantSite> {
+  return request.post(endpoints.tenantSite(), payload);
+}
+
+export function runTenantCrawl(payload: t.TTenantCrawlRequest = {}): Promise<t.TTenantCrawlResponse> {
+  return request.post(endpoints.tenantCrawl(), payload);
+}
+
+export function getTenantCrawlStatus(
+  params: { site_id?: number } = {},
+): Promise<t.TTenantCrawlStatusResponse> {
+  return request.get(endpoints.tenantCrawlStatus(params));
+}
+
+export function getTenantCrawlStatusById(
+  jobId: number,
+): Promise<t.TTenantCrawlStatusResponse> {
+  return request.get(endpoints.tenantCrawlStatusById(jobId));
+}
+
+export function createTenantBillingCheckout(): Promise<t.TTenantBillingCheckoutResponse> {
+  return request.post(endpoints.tenantBillingCheckout(), {});
+}
+
+export function getTenantActions(
+  params: t.TTenantActionsQuery = {},
+): Promise<t.TTenantAction[]> {
+  return request.get(endpoints.tenantActions(params));
+}
+
+export function discoverTenantActions(
+  payload: t.TTenantActionsDiscoverRequest,
+): Promise<t.TTenantActionJobResponse> {
+  return request.post(endpoints.tenantActionsDiscover(), payload);
+}
+
 export function updateFeedback(
   conversationId: string,
   messageId: string,

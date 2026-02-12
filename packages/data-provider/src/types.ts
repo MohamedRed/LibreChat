@@ -199,6 +199,7 @@ export type TUser = {
   avatar: string;
   role: string;
   provider: string;
+  tenantId?: string;
   plugins?: string[];
   twoFactorEnabled?: boolean;
   backupCodes?: TBackupCode[];
@@ -398,10 +399,14 @@ export type TSearchMessageTreeNode = object;
 
 export type TRegisterUserResponse = {
   message: string;
+  checkout_url?: string;
+  tenant_id?: string;
 };
 
 export type TRegisterUser = {
   name: string;
+  company_name: string;
+  subdomain: string;
   email: string;
   username: string;
   password: string;
@@ -681,4 +686,71 @@ export type TBalanceResponse = {
   refillIntervalUnit?: 'seconds' | 'minutes' | 'hours' | 'days' | 'weeks' | 'months';
   lastRefill?: Date;
   refillAmount?: number;
+};
+
+export type TTenantSite = {
+  id?: number;
+  base_url: string;
+  sitemap_url?: string | null;
+  crawl_rules?: Record<string, unknown> | null;
+  verified_at?: string | null;
+};
+
+export type TTenantSiteRequest = {
+  base_url: string;
+  sitemap_url?: string | null;
+  crawl_rules?: Record<string, unknown> | null;
+};
+
+export type TTenantCrawlRequest = {
+  site_id?: number;
+};
+
+export type TTenantCrawlResponse = {
+  job_id: number;
+  status: string;
+};
+
+export type TTenantCrawlStatusResponse = {
+  job_id: number;
+  status: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  stats?: Record<string, unknown> | null;
+};
+
+export type TTenantBillingCheckoutResponse = {
+  checkout_url: string;
+};
+
+export type TTenantAction = {
+  id: number;
+  tenant_id: string;
+  site_id: number;
+  url: string;
+  action_type: string;
+  label?: string | null;
+  selector?: string | null;
+  method?: string | null;
+  endpoint?: string | null;
+  inputs?: Record<string, unknown> | unknown[] | null;
+  confidence?: number | null;
+  source: string;
+  discovered_at?: string | null;
+};
+
+export type TTenantActionsQuery = {
+  site_id?: number;
+  url?: string;
+};
+
+export type TTenantActionsDiscoverRequest = {
+  url: string;
+  site_id?: number;
+};
+
+export type TTenantActionJobResponse = {
+  job_id: number;
+  status: string;
+  job_type?: string;
 };

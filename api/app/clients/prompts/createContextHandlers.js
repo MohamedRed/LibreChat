@@ -19,6 +19,7 @@ function createContextHandlers(req, userMessageContent) {
   const processedFiles = [];
   const processedIds = new Set();
   const jwtToken = generateShortLivedToken(req.user.id);
+  const tenantId = req.user?.tenantId;
   const useFullContext = isEnabled(process.env.RAG_USE_FULL_CONTEXT);
 
   const query = async (file) => {
@@ -26,6 +27,7 @@ function createContextHandlers(req, userMessageContent) {
       return axios.get(`${process.env.RAG_API_URL}/documents/${file.file_id}/context`, {
         headers: {
           Authorization: `Bearer ${jwtToken}`,
+          ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
         },
       });
     }
@@ -41,6 +43,7 @@ function createContextHandlers(req, userMessageContent) {
         headers: {
           Authorization: `Bearer ${jwtToken}`,
           'Content-Type': 'application/json',
+          ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
         },
       },
     );

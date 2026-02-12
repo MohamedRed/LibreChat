@@ -41,6 +41,16 @@ const buildQuery = (params: Record<string, unknown>): string => {
 
 export const health = () => `${BASE_URL}/health`;
 export const user = () => `${BASE_URL}/api/user`;
+const tenantRoot = `${BASE_URL}/api/tenant`;
+export const tenantSite = () => `${tenantRoot}/site`;
+export const tenantCrawl = () => `${tenantRoot}/crawl`;
+export const tenantCrawlStatus = (params: { site_id?: number } = {}) =>
+  `${tenantRoot}/crawl/status${buildQuery(params)}`;
+export const tenantCrawlStatusById = (jobId: number) => `${tenantRoot}/crawl/status/${jobId}`;
+export const tenantBillingCheckout = () => `${tenantRoot}/billing/checkout`;
+export const tenantActions = (params: { site_id?: number; url?: string } = {}) =>
+  `${tenantRoot}/actions${buildQuery(params)}`;
+export const tenantActionsDiscover = () => `${tenantRoot}/actions/discover`;
 
 export const balance = () => `${BASE_URL}/api/balance`;
 

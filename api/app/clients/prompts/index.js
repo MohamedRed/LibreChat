@@ -3,6 +3,7 @@ const summaryPrompts = require('./summaryPrompts');
 const truncate = require('./truncate');
 const createVisionPrompt = require('./createVisionPrompt');
 const createContextHandlers = require('./createContextHandlers');
+const createSiteContext = require('./createSiteContext');
 
 module.exports = {
   ...formatMessages,
@@ -10,4 +11,5 @@ module.exports = {
   ...truncate,
   createVisionPrompt,
   createContextHandlers,
+  createSiteContext,
 };

@@ -127,7 +127,7 @@ const createErrorHandler = ({ req, res, getContext, originPath = '/assistants/ch
     try {
       finalEvent = {
         final: true,
-        conversation: await getConvo(req.user.id, conversationId),
+        conversation: await getConvo(req.user.id, conversationId, req.user.tenantId),
       };
     } catch (error) {
       logger.error(`[${originPath}] Error finalizing error process`, error);

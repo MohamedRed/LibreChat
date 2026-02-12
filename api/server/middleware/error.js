@@ -58,12 +58,17 @@ const sendError = async (req, res, options, callback) => {
   }
 
   if (!errorMessage.error) {
-    const requestMessage = { messageId: parentMessageId, conversationId };
+    const tenantId = req.user?.tenantId;
+    const requestMessage = {
+      messageId: parentMessageId,
+      conversationId,
+      ...(tenantId ? { tenantId } : {}),
+    };
     let query = [],
       convo = {};
     try {
       query = await getMessages(requestMessage);
-      convo = await getConvo(user, conversationId);
+      convo = await getConvo(user, conversationId, tenantId);
     } catch (err) {
       logger.error('[sendError] Error retrieving conversation data:', err);
       convo = parseConvo(errorMessage);

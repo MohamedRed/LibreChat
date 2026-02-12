@@ -78,7 +78,10 @@ async function uploadImageToS3({
  */
 async function prepareImageURLS3(req, file) {
   try {
-    const updatePromise = updateFile({ file_id: file.file_id });
+    const updatePromise = updateFile({
+      file_id: file.file_id,
+      tenantId: req.user?.tenantId,
+    });
     return Promise.all([updatePromise, file.filepath]);
   } catch (error) {
     logger.error('[prepareImageURLS3] Error preparing image URL:', error.message);

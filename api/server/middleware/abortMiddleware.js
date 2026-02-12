@@ -160,7 +160,7 @@ async function abortMessage(req, res) {
   );
 
   // Get conversation for title
-  const conversation = await getConvo(userId, conversationId);
+  const conversation = await getConvo(userId, conversationId, req.user?.tenantId);
 
   const finalEvent = {
     title: conversation && !conversation.title ? null : conversation?.title || 'New Chat',

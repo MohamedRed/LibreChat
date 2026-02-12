@@ -13,7 +13,7 @@ async function abortRun(req, res) {
   res.setHeader('Content-Type', 'application/json');
   const { abortKey, endpoint } = req.body;
   const [conversationId, latestMessageId] = abortKey.split(':');
-  const conversation = await getConvo(req.user.id, conversationId);
+  const conversation = await getConvo(req.user.id, conversationId, req.user.tenantId);
 
   if (conversation?.model) {
     req.body = req.body || {}; // Express 5: ensure req.body exists
@@ -77,6 +77,7 @@ async function abortRun(req, res) {
     user: req.user.id,
     unfinished: true,
     conversationId,
+    tenantId: req.user.tenantId,
   });
   runMessages = await checkMessageGaps({
     openai,

@@ -122,6 +122,8 @@ test('renders registration form', () => {
   expect(getByText(/Create your account/i)).toBeInTheDocument();
   expect(getByRole('textbox', { name: /Full name/i })).toBeInTheDocument();
   expect(getByRole('form', { name: /Registration form/i })).toBeVisible();
+  expect(getByRole('textbox', { name: /Company name/i })).toBeInTheDocument();
+  expect(getByRole('textbox', { name: /Subdomain/i })).toBeInTheDocument();
   expect(getByRole('textbox', { name: /Username/i })).toBeInTheDocument();
   expect(getByRole('textbox', { name: /Email/i })).toBeInTheDocument();
   expect(getByTestId('password')).toBeInTheDocument();
@@ -185,21 +187,25 @@ test('renders registration form', () => {
 test('shows validation error messages', async () => {
   const { getByTestId, getAllByRole, getByRole } = setup();
   await userEvent.type(getByRole('textbox', { name: /Full name/i }), 'J');
+  await userEvent.type(getByRole('textbox', { name: /Company name/i }), 'A');
+  await userEvent.type(getByRole('textbox', { name: /Subdomain/i }), 'AA');
   await userEvent.type(getByRole('textbox', { name: /Username/i }), 'j');
   await userEvent.type(getByRole('textbox', { name: /Email/i }), 'test');
   await userEvent.type(getByTestId('password'), 'pass');
   await userEvent.type(getByTestId('confirm_password'), 'password1');
   const alerts = getAllByRole('alert');
-  expect(alerts).toHaveLength(6);
+  expect(alerts).toHaveLength(8);
 
   // This first alert is for the theme toggle, which is empty within this test but still picked up by getAllByRole as an alert
   expect(alerts[0]).toHaveTextContent('');
 
   expect(alerts[1]).toHaveTextContent(/Name must be at least 3 characters/i);
-  expect(alerts[2]).toHaveTextContent(/Username must be at least 2 characters/i);
-  expect(alerts[3]).toHaveTextContent(/You must enter a valid email address/i);
-  expect(alerts[4]).toHaveTextContent(/Password must be at least 8 characters/i);
-  expect(alerts[5]).toHaveTextContent(/Passwords do not match/i);
+  expect(alerts[2]).toHaveTextContent(/Company name must be at least 2 characters/i);
+  expect(alerts[3]).toHaveTextContent(/Subdomain must be at least 3 characters/i);
+  expect(alerts[4]).toHaveTextContent(/Username must be at least 2 characters/i);
+  expect(alerts[5]).toHaveTextContent(/You must enter a valid email address/i);
+  expect(alerts[6]).toHaveTextContent(/Password must be at least 8 characters/i);
+  expect(alerts[7]).toHaveTextContent(/Passwords do not match/i);
 });
 
 test('shows error message when registration fails', async () => {
@@ -216,6 +222,8 @@ test('shows error message when registration fails', async () => {
   });
 
   await userEvent.type(getByRole('textbox', { name: /Full name/i }), 'John Doe');
+  await userEvent.type(getByRole('textbox', { name: /Company name/i }), 'Acme');
+  await userEvent.type(getByRole('textbox', { name: /Subdomain/i }), 'acme');
   await userEvent.type(getByRole('textbox', { name: /Username/i }), 'johndoe');
   await userEvent.type(getByRole('textbox', { name: /Email/i }), 'test@test.com');
   await userEvent.type(getByTestId('password'), 'password');

@@ -23,12 +23,14 @@ const deleteVectors = async (req, file) => {
   }
   try {
     const jwtToken = generateShortLivedToken(req.user.id);
+    const tenantId = req.user?.tenantId;
 
     return await axios.delete(`${process.env.RAG_API_URL}/documents`, {
       headers: {
         Authorization: `Bearer ${jwtToken}`,
         'Content-Type': 'application/json',
         accept: 'application/json',
+        ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
       },
       data: [file.file_id],
     });
@@ -71,6 +73,7 @@ async function uploadVectors({ req, file, file_id, entity_id, storageMetadata })
 
   try {
     const jwtToken = generateShortLivedToken(req.user.id);
+    const tenantId = req.user?.tenantId;
     const formData = new FormData();
     formData.append('file_id', file_id);
     formData.append('file', fs.createReadStream(file.path));
@@ -89,6 +92,7 @@ async function uploadVectors({ req, file, file_id, entity_id, storageMetadata })
       headers: {
         Authorization: `Bearer ${jwtToken}`,
         accept: 'application/json',
+        ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
         ...formHeaders,
       },
     });

@@ -49,6 +49,7 @@ router.get('/', async (req, res) => {
       search,
       sortBy,
       sortDirection,
+      tenantId: req.user.tenantId,
     });
     res.status(200).json(result);
   } catch (error) {
@@ -59,7 +60,7 @@ router.get('/', async (req, res) => {
 
 router.get('/:conversationId', async (req, res) => {
   const { conversationId } = req.params;
-  const convo = await getConvo(req.user.id, conversationId);
+  const convo = await getConvo(req.user.id, conversationId, req.user.tenantId);
 
   if (convo) {
     res.status(200).json(convo);
@@ -111,6 +112,10 @@ router.delete('/', async (req, res) => {
     filter = { conversationId };
   } else if (source === 'button') {
     return res.status(200).send('No conversationId provided');
+  }
+
+  if (req.user?.tenantId) {
+    filter.tenantId = req.user.tenantId;
   }
 
   if (
@@ -242,7 +247,11 @@ router.post(
   async (req, res) => {
     try {
       /* TODO: optimize to return imported conversations and add manually */
-      await importConversations({ filepath: req.file.path, requestUserId: req.user.id });
+      await importConversations({
+        filepath: req.file.path,
+        requestUserId: req.user.id,
+        tenantId: req.user.tenantId,
+      });
       res.status(201).json({ message: 'Conversation(s) imported successfully' });
     } catch (error) {
       logger.error('Error processing file', error);
@@ -271,6 +280,7 @@ router.post('/fork', forkIpLimiter, forkUserLimiter, async (req, res) => {
       records: true,
       splitAtTarget,
       option,
+      tenantId: req.user.tenantId,
     });
 
     res.json(result);
@@ -288,6 +298,7 @@ router.post('/duplicate', async (req, res) => {
       userId: req.user.id,
       conversationId,
       title,
+      tenantId: req.user.tenantId,
     });
     res.status(201).json(result);
   } catch (error) {

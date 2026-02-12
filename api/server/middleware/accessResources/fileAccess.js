@@ -84,7 +84,7 @@ const fileAccess = async (req, res, next) => {
       });
     }
 
-    const [file] = await getFiles({ file_id: fileId });
+    const [file] = await getFiles({ file_id: fileId, tenantId: req.user?.tenantId });
     if (!file) {
       return res.status(404).json({
         error: 'Not Found',

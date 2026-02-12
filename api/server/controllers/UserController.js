@@ -1,4 +1,5 @@
 const { logger, webSearchKeys } = require('@librechat/data-schemas');
+const axios = require('axios');
 const { Tools, CacheKeys, Constants, FileSources } = require('librechat-data-provider');
 const {
   MCPOAuthHandler,
@@ -43,6 +44,30 @@ const { deleteToolCalls } = require('~/models/ToolCall');
 const { deleteUserPrompts } = require('~/models/Prompt');
 const { deleteUserAgents } = require('~/models/Agent');
 const { getLogStores } = require('~/cache');
+
+const controlPlaneUrl = process.env.CONTROL_PLANE_URL;
+const controlPlaneInternalKey = process.env.CONTROL_PLANE_INTERNAL_KEY;
+
+const teardownTenant = async (tenantId) => {
+  if (!tenantId) {
+    return { attempted: false, status: 'not_applicable' };
+  }
+  if (!controlPlaneUrl || !controlPlaneInternalKey) {
+    throw new Error('Control plane teardown is not configured');
+  }
+
+  const response = await axios.delete(`${controlPlaneUrl}/internal/tenants/${tenantId}/teardown`, {
+    headers: {
+      Authorization: `Bearer ${controlPlaneInternalKey}`,
+    },
+    timeout: 20000,
+  });
+
+  const status = response?.data?.status === 'deleted' || response?.data?.status === 'not_found'
+    ? 'succeeded'
+    : 'failed';
+  return { attempted: true, status };
+};
 
 const getUserController = async (req, res) => {
   const appConfig = await getAppConfig({ role: req.user?.role });
@@ -100,7 +125,7 @@ const acceptTermsController = async (req, res) => {
 
 const deleteUserFiles = async (req) => {
   try {
-    const userFiles = await getFiles({ user: req.user.id });
+    const userFiles = await getFiles({ user: req.user.id, tenantId: req.user.tenantId });
     await processDeleteRequest({
       req,
       files: userFiles,
@@ -237,16 +262,26 @@ const updateUserPluginsController = async (req, res) => {
 
 const deleteUserController = async (req, res) => {
   const { user } = req;
+  const tenantId = user?.tenantId ?? null;
 
   try {
-    await deleteMessages({ user: user.id }); // delete user messages
+    let shouldTeardownTenant = false;
+    if (tenantId) {
+      const remainingTenantUsers = await User.countDocuments({
+        tenantId,
+        _id: { $ne: user._id },
+      });
+      shouldTeardownTenant = remainingTenantUsers === 0;
+    }
+
+    await deleteMessages({ user: user.id, tenantId: user.tenantId }); // delete user messages
     await deleteAllUserSessions({ userId: user.id }); // delete user sessions
     await Transaction.deleteMany({ user: user.id }); // delete user transactions
     await deleteUserKey({ userId: user.id, all: true }); // delete user keys
     await Balance.deleteMany({ user: user._id }); // delete user balances
     await deletePresets(user.id); // delete user presets
     try {
-      await deleteConvos(user.id); // delete user convos
+      await deleteConvos(user.id, { tenantId: user.tenantId }); // delete user convos
     } catch (error) {
       logger.error('[deleteUserController] Error deleting user convos, likely no convos', error);
     }
@@ -254,7 +289,7 @@ const deleteUserController = async (req, res) => {
     await deleteUserById(user.id); // delete user
     await deleteAllSharedLinks(user.id); // delete user shared links
     await deleteUserFiles(req); // delete user files
-    await deleteFiles(null, user.id); // delete database files in case of orphaned files from previous steps
+    await deleteFiles(null, user.id, user.tenantId); // delete database files in case of orphaned files from previous steps
     await deleteToolCalls(user.id); // delete user tool calls
     await deleteUserAgents(user.id); // delete user agents
     await AgentApiKey.deleteMany({ user: user._id }); // delete user agent API keys
@@ -270,8 +305,44 @@ const deleteUserController = async (req, res) => {
       { $pull: { memberIds: user.id } },
     );
     await AclEntry.deleteMany({ principalId: user._id }); // delete user ACL entries
+    let tenantTeardownAttempted = false;
+    let tenantTeardownStatus = 'not_applicable';
+    if (shouldTeardownTenant && tenantId) {
+      tenantTeardownAttempted = true;
+      try {
+        const teardownResult = await teardownTenant(tenantId);
+        tenantTeardownStatus = teardownResult.status;
+      } catch (teardownError) {
+        logger.error(
+          `[deleteUserController] Tenant teardown request failed for tenant_id=${tenantId}`,
+          teardownError,
+        );
+        return res.status(502).send({
+          message: 'User deleted but tenant teardown failed',
+          tenant_teardown_attempted: true,
+          tenant_teardown_status: 'failed',
+          tenant_id: tenantId,
+        });
+      }
+      if (tenantTeardownStatus !== 'succeeded') {
+        logger.error(
+          `[deleteUserController] Tenant teardown failed for tenant_id=${tenantId}, status=${tenantTeardownStatus}`,
+        );
+        return res.status(502).send({
+          message: 'User deleted but tenant teardown failed',
+          tenant_teardown_attempted: true,
+          tenant_teardown_status: 'failed',
+          tenant_id: tenantId,
+        });
+      }
+    }
     logger.info(`User deleted account. Email: ${user.email} ID: ${user.id}`);
-    res.status(200).send({ message: 'User deleted' });
+    res.status(200).send({
+      message: 'User deleted',
+      tenant_teardown_attempted: tenantTeardownAttempted,
+      tenant_teardown_status: tenantTeardownStatus,
+      tenant_id: tenantId,
+    });
   } catch (err) {
     logger.error('[deleteUserController]', err);
     return res.status(500).json({ message: 'Something went wrong.' });

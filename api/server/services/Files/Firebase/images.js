@@ -69,7 +69,12 @@ async function uploadImageToFirebase({ req, file, file_id, endpoint, resolution 
 async function prepareImageURL(req, file) {
   const { filepath } = file;
   const promises = [];
-  promises.push(updateFile({ file_id: file.file_id }));
+  promises.push(
+    updateFile({
+      file_id: file.file_id,
+      tenantId: req.user?.tenantId,
+    }),
+  );
   promises.push(filepath);
   return await Promise.all(promises);
 }

@@ -86,6 +86,17 @@ const processAddedConvo = async ({
       return { userMCPAuthMap };
     }
 
+    const tenantId = req.user?.tenantId;
+    const getConvoFilesForTenant = (conversationId) => getConvoFiles(conversationId, tenantId);
+    const getToolFilesByIdsForTenant = (fileIds, toolResourceSet) =>
+      db.getToolFilesByIds(fileIds, toolResourceSet, tenantId);
+    const getFilesForTenant = (filter, sortOptions, selectFields) =>
+      db.getFiles(
+        { ...filter, ...(tenantId ? { tenantId } : {}) },
+        sortOptions,
+        selectFields,
+      );
+
     const addedConfig = await initializeAgent(
       {
         req,
@@ -99,14 +110,14 @@ const processAddedConvo = async ({
         allowedProviders,
       },
       {
-        getConvoFiles,
-        getFiles: db.getFiles,
+        getConvoFiles: getConvoFilesForTenant,
+        getFiles: getFilesForTenant,
         getUserKey: db.getUserKey,
         getMessages: db.getMessages,
         updateFilesUsage: db.updateFilesUsage,
         getUserCodeFiles: db.getUserCodeFiles,
         getUserKeyValues: db.getUserKeyValues,
-        getToolFilesByIds: db.getToolFilesByIds,
+        getToolFilesByIds: getToolFilesByIdsForTenant,
         getCodeGeneratedFiles: db.getCodeGeneratedFiles,
       },
     );

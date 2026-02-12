@@ -6,11 +6,12 @@ const { Conversation } = require('~/db/models');
 /**
  * Searches for a conversation by conversationId and returns a lean document with only conversationId and user.
  * @param {string} conversationId - The conversation's ID.
- * @returns {Promise<{conversationId: string, user: string} | null>} The conversation object with selected fields or null if not found.
+ * @returns {Promise<{conversationId: string, user: string, tenantId?: string} | null>} The conversation object with selected fields or null if not found.
  */
-const searchConversation = async (conversationId) => {
+const searchConversation = async (conversationId, tenantId) => {
   try {
-    return await Conversation.findOne({ conversationId }, 'conversationId user').lean();
+    const filter = tenantId ? { conversationId, tenantId } : { conversationId };
+    return await Conversation.findOne(filter, 'conversationId user tenantId').lean();
   } catch (error) {
     logger.error('[searchConversation] Error searching conversation', error);
     throw new Error('Error searching conversation');
@@ -23,9 +24,10 @@ const searchConversation = async (conversationId) => {
  * @param {string} conversationId - The conversation's ID.
  * @returns {Promise<TConversation>} The conversation object.
  */
-const getConvo = async (user, conversationId) => {
+const getConvo = async (user, conversationId, tenantId) => {
   try {
-    return await Conversation.findOne({ user, conversationId }).lean();
+    const filter = tenantId ? { user, conversationId, tenantId } : { user, conversationId };
+    return await Conversation.findOne(filter).lean();
   } catch (error) {
     logger.error('[getConvo] Error getting single conversation', error);
     throw new Error('Error getting single conversation');
@@ -66,9 +68,10 @@ const deleteNullOrEmptyConversations = async () => {
  * @param {string} conversationId - The conversation's ID.
  * @returns {Promise<string[] | null>}
  */
-const getConvoFiles = async (conversationId) => {
+const getConvoFiles = async (conversationId, tenantId) => {
   try {
-    return (await Conversation.findOne({ conversationId }, 'files').lean())?.files ?? [];
+    const filter = tenantId ? { conversationId, tenantId } : { conversationId };
+    return (await Conversation.findOne(filter, 'files').lean())?.files ?? [];
   } catch (error) {
     logger.error('[getConvoFiles] Error getting conversation files', error);
     throw new Error('Error getting conversation files');
@@ -92,8 +95,10 @@ module.exports = {
         logger.debug(`[saveConvo] ${metadata.context}`);
       }
 
-      const messages = await getMessages({ conversationId }, '_id');
-      const update = { ...convo, messages, user: req.user.id };
+      const tenantId = req.user?.tenantId;
+      const messageFilter = tenantId ? { conversationId, tenantId } : { conversationId };
+      const messages = await getMessages(messageFilter, '_id');
+      const update = { ...convo, messages, user: req.user.id, tenantId };
 
       if (newConversationId) {
         update.conversationId = newConversationId;
@@ -120,7 +125,7 @@ module.exports = {
 
       /** Note: the resulting Model object is necessary for Meilisearch operations */
       const conversation = await Conversation.findOneAndUpdate(
-        { conversationId, user: req.user.id },
+        { conversationId, user: req.user.id, tenantId },
         updateOperation,
         {
           new: true,
@@ -141,7 +146,11 @@ module.exports = {
     try {
       const bulkOps = conversations.map((convo) => ({
         updateOne: {
-          filter: { conversationId: convo.conversationId, user: convo.user },
+          filter: {
+            conversationId: convo.conversationId,
+            user: convo.user,
+            ...(convo.tenantId ? { tenantId: convo.tenantId } : {}),
+          },
           update: convo,
           upsert: true,
           timestamps: false,
@@ -165,9 +174,13 @@ module.exports = {
       search,
       sortBy = 'updatedAt',
       sortDirection = 'desc',
+      tenantId,
     } = {},
   ) => {
     const filters = [{ user }];
+    if (tenantId) {
+      filters.push({ tenantId });
+    }
     if (isArchived) {
       filters.push({ isArchived: true });
     } else {
@@ -182,7 +195,10 @@ module.exports = {
 
     if (search) {
       try {
-        const meiliResults = await Conversation.meiliSearch(search, { filter: `user = "${user}"` });
+        const meiliFilter = tenantId
+          ? `user = "${user}" AND tenantId = "${tenantId}"`
+          : `user = "${user}"`;
+        const meiliResults = await Conversation.meiliSearch(search, { filter: meiliFilter });
         const matchingIds = Array.isArray(meiliResults.hits)
           ? meiliResults.hits.map((result) => result.conversationId)
           : [];
@@ -267,7 +283,7 @@ module.exports = {
       throw new Error('Error getting conversations');
     }
   },
-  getConvosQueried: async (user, convoIds, cursor = null, limit = 25) => {
+  getConvosQueried: async (user, convoIds, cursor = null, limit = 25, tenantId) => {
     try {
       if (!convoIds?.length) {
         return { conversations: [], nextCursor: null, convoMap: {} };
@@ -275,11 +291,13 @@ module.exports = {
 
       const conversationIds = convoIds.map((convo) => convo.conversationId);
 
-      const results = await Conversation.find({
+      const query = {
         user,
         conversationId: { $in: conversationIds },
         $or: [{ expiredAt: { $exists: false } }, { expiredAt: null }],
-      }).lean();
+        ...(tenantId ? { tenantId } : {}),
+      };
+      const results = await Conversation.find(query).lean();
 
       results.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
 
@@ -310,9 +328,9 @@ module.exports = {
   },
   getConvo,
   /* chore: this method is not properly error handled */
-  getConvoTitle: async (user, conversationId) => {
+  getConvoTitle: async (user, conversationId, tenantId) => {
     try {
-      const convo = await getConvo(user, conversationId);
+      const convo = await getConvo(user, conversationId, tenantId);
       /* ChatGPT Browser was triggering error here due to convo being saved later */
       if (convo && !convo.title) {
         return null;
@@ -356,6 +374,7 @@ module.exports = {
 
       const deleteMessagesResult = await deleteMessages({
         conversationId: { $in: conversationIds },
+        ...(filter?.tenantId ? { tenantId: filter.tenantId } : {}),
       });
 
       return { ...deleteConvoResult, messages: deleteMessagesResult };

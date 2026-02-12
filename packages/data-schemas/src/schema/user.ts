@@ -41,6 +41,10 @@ const userSchema = new Schema<IUser>(
       match: [/\S+@\S+\.\S+/, 'is invalid'],
       index: true,
     },
+    tenantId: {
+      type: String,
+      index: true,
+    },
     emailVerified: {
       type: Boolean,
       required: true,

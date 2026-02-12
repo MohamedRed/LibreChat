@@ -43,6 +43,14 @@ const loginSchema = z.object({
 
 const registerSchema = z
   .object({
+    company_name: z.string().min(2).max(120),
+    subdomain: z
+      .string()
+      .min(3)
+      .max(63)
+      .regex(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/, {
+        message: 'Subdomain must be lowercase letters, numbers, or hyphens',
+      }),
     name: z.string().min(3).max(80),
     username: z
       .union([z.literal(''), usernameSchema])

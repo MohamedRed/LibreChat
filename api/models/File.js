@@ -8,8 +8,9 @@ const { File } = require('~/db/models');
  * @param {object} options - Query options for filtering, projection, etc.
  * @returns {Promise<MongoFile>} A promise that resolves to the file document or null.
  */
-const findFileById = async (file_id, options = {}) => {
-  return await File.findOne({ file_id, ...options }).lean();
+const findFileById = async (file_id, options = {}, tenantId) => {
+  const filter = { file_id, ...options, ...(tenantId ? { tenantId } : {}) };
+  return await File.findOne(filter).lean();
 };
 
 /**
@@ -32,7 +33,7 @@ const getFiles = async (filter, _sortOptions, selectFields = { text: 0 }) => {
  * @param {Set<EToolResources>} toolResourceSet - Optional filter for tool resources
  * @returns {Promise<Array<MongoFile>>} Files that match the criteria
  */
-const getToolFilesByIds = async (fileIds, toolResourceSet) => {
+const getToolFilesByIds = async (fileIds, toolResourceSet, tenantId) => {
   if (!fileIds || !fileIds.length || !toolResourceSet?.size) {
     return [];
   }
@@ -55,6 +56,7 @@ const getToolFilesByIds = async (fileIds, toolResourceSet) => {
       file_id: { $in: fileIds },
       context: { $ne: FileContext.execute_code }, // Exclude code-generated files
       $or: orConditions,
+      ...(tenantId ? { tenantId } : {}),
     };
 
     const selectFields = { text: 0 };
@@ -147,7 +149,11 @@ const createFile = async (data, disableTTL) => {
     delete fileData.expiresAt;
   }
 
-  return await File.findOneAndUpdate({ file_id: data.file_id }, fileData, {
+  const filter = {
+    file_id: data.file_id,
+    ...(data.tenantId ? { tenantId: data.tenantId } : {}),
+  };
+  return await File.findOneAndUpdate(filter, fileData, {
     new: true,
     upsert: true,
   }).lean();
@@ -159,12 +165,13 @@ const createFile = async (data, disableTTL) => {
  * @returns {Promise<MongoFile>} A promise that resolves to the updated file document.
  */
 const updateFile = async (data) => {
-  const { file_id, ...update } = data;
+  const { file_id, tenantId, ...update } = data;
   const updateOperation = {
     $set: update,
     $unset: { expiresAt: '' }, // Remove the expiresAt field to prevent TTL
   };
-  return await File.findOneAndUpdate({ file_id }, updateOperation, { new: true }).lean();
+  const filter = { file_id, ...(tenantId ? { tenantId } : {}) };
+  return await File.findOneAndUpdate(filter, updateOperation, { new: true }).lean();
 };
 
 /**
@@ -173,12 +180,13 @@ const updateFile = async (data) => {
  * @returns {Promise<MongoFile>} A promise that resolves to the updated file document.
  */
 const updateFileUsage = async (data) => {
-  const { file_id, inc = 1 } = data;
+  const { file_id, inc = 1, tenantId } = data;
   const updateOperation = {
     $inc: { usage: inc },
     $unset: { expiresAt: '', temp_file_id: '' },
   };
-  return await File.findOneAndUpdate({ file_id }, updateOperation, { new: true }).lean();
+  const filter = { file_id, ...(tenantId ? { tenantId } : {}) };
+  return await File.findOneAndUpdate(filter, updateOperation, { new: true }).lean();
 };
 
 /**
@@ -186,8 +194,9 @@ const updateFileUsage = async (data) => {
  * @param {string} file_id - The unique identifier of the file to delete.
  * @returns {Promise<MongoFile>} A promise that resolves to the deleted file document or null.
  */
-const deleteFile = async (file_id) => {
-  return await File.findOneAndDelete({ file_id }).lean();
+const deleteFile = async (file_id, tenantId) => {
+  const filter = { file_id, ...(tenantId ? { tenantId } : {}) };
+  return await File.findOneAndDelete(filter).lean();
 };
 
 /**
@@ -204,10 +213,13 @@ const deleteFileByFilter = async (filter) => {
  * @param {Array<string>} file_ids - The unique identifiers of the files to delete.
  * @returns {Promise<Object>} A promise that resolves to the result of the deletion operation.
  */
-const deleteFiles = async (file_ids, user) => {
+const deleteFiles = async (file_ids, user, tenantId) => {
   let deleteQuery = { file_id: { $in: file_ids } };
   if (user) {
     deleteQuery = { user: user };
+  }
+  if (tenantId) {
+    deleteQuery.tenantId = tenantId;
   }
   return await File.deleteMany(deleteQuery);
 };

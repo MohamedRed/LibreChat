@@ -44,10 +44,15 @@ router.get('/', async (req, res) => {
         conversationId,
         messageId,
         user: user,
+        ...(req.user?.tenantId ? { tenantId: req.user.tenantId } : {}),
       }).lean();
       response = { messages: message ? [message] : [], nextCursor: null };
     } else if (conversationId) {
-      const filter = { conversationId, user: user };
+      const filter = {
+        conversationId,
+        user: user,
+        ...(req.user?.tenantId ? { tenantId: req.user.tenantId } : {}),
+      };
       if (cursor) {
         filter[sortField] = sortOrder === 1 ? { $gt: cursor } : { $lt: cursor };
       }
@@ -63,11 +68,14 @@ router.get('/', async (req, res) => {
       }
       response = { messages, nextCursor };
     } else if (search) {
-      const searchResults = await Message.meiliSearch(search, { filter: `user = "${user}"` }, true);
+      const meiliFilter = req.user?.tenantId
+        ? `user = "${user}" AND tenantId = "${req.user.tenantId}"`
+        : `user = "${user}"`;
+      const searchResults = await Message.meiliSearch(search, { filter: meiliFilter }, true);
 
       const messages = searchResults.hits || [];
 
-      const result = await getConvosQueried(req.user.id, messages, cursor);
+      const result = await getConvosQueried(req.user.id, messages, cursor, undefined, req.user.tenantId);
 
       const messageIds = [];
       const cleanedMessages = [];
@@ -82,6 +90,7 @@ router.get('/', async (req, res) => {
       const dbMessages = await getMessages({
         user,
         messageId: { $in: messageIds },
+        ...(req.user?.tenantId ? { tenantId: req.user.tenantId } : {}),
       });
 
       const dbMessageMap = {};
@@ -136,7 +145,11 @@ router.post('/branch', async (req, res) => {
       return res.status(400).json({ error: 'messageId and agentId are required' });
     }
 
-    const sourceMessage = await getMessage({ user: userId, messageId });
+    const sourceMessage = await getMessage({
+      user: userId,
+      messageId,
+      tenantId: req.user?.tenantId,
+    });
     if (!sourceMessage) {
       return res.status(404).json({ error: 'Source message not found' });
     }
@@ -211,7 +224,11 @@ router.post('/artifact/:messageId', async (req, res) => {
       return res.status(400).json({ error: 'Invalid request parameters' });
     }
 
-    const message = await getMessage({ user: req.user.id, messageId });
+    const message = await getMessage({
+      user: req.user.id,
+      messageId,
+      tenantId: req.user.tenantId,
+    });
     if (!message) {
       return res.status(404).json({ error: 'Message not found' });
     }
@@ -283,7 +300,10 @@ router.post('/artifact/:messageId', async (req, res) => {
 router.get('/:conversationId', validateMessageReq, async (req, res) => {
   try {
     const { conversationId } = req.params;
-    const messages = await getMessages({ conversationId }, '-_id -__v -user');
+    const messages = await getMessages(
+      { conversationId, ...(req.user?.tenantId ? { tenantId: req.user.tenantId } : {}) },
+      '-_id -__v -user',
+    );
     res.status(200).json(messages);
   } catch (error) {
     logger.error('Error fetching messages:', error);
@@ -313,7 +333,14 @@ router.post('/:conversationId', validateMessageReq, async (req, res) => {
 router.get('/:conversationId/:messageId', validateMessageReq, async (req, res) => {
   try {
     const { conversationId, messageId } = req.params;
-    const message = await getMessages({ conversationId, messageId }, '-_id -__v -user');
+    const message = await getMessages(
+      {
+        conversationId,
+        messageId,
+        ...(req.user?.tenantId ? { tenantId: req.user.tenantId } : {}),
+      },
+      '-_id -__v -user',
+    );
     if (!message) {
       return res.status(404).json({ error: 'Message not found' });
     }
@@ -339,7 +366,16 @@ router.put('/:conversationId/:messageId', validateMessageReq, async (req, res) =
       return res.status(400).json({ error: 'Invalid index' });
     }
 
-    const message = (await getMessages({ conversationId, messageId }, 'content tokenCount'))?.[0];
+    const message = (
+      await getMessages(
+        {
+          conversationId,
+          messageId,
+          ...(req.user?.tenantId ? { tenantId: req.user.tenantId } : {}),
+        },
+        'content tokenCount',
+      )
+    )?.[0];
     if (!message) {
       return res.status(404).json({ error: 'Message not found' });
     }

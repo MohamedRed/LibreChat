@@ -56,9 +56,10 @@ const MAX_NO_CHANGE_COUNT = 10;
 /**
  * @param {string} user
  * @param {string} messageId
+ * @param {string} [tenantId]
  * @returns {() => Promise<{ text: string, isFinished: boolean }[]>}
  */
-function createChunkProcessor(user, messageId) {
+function createChunkProcessor(user, messageId, tenantId) {
   let notFoundCount = 0;
   let noChangeCount = 0;
   let processedText = '';
@@ -83,7 +84,7 @@ function createChunkProcessor(user, messageId) {
     /** @type { string | { text: string; complete: boolean } } */
     let message = await messageCache.get(messageId);
     if (!message) {
-      message = await getMessage({ user, messageId });
+      message = await getMessage({ user, messageId, tenantId });
     }
 
     if (!message) {

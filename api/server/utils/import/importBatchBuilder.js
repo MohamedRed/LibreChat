@@ -8,10 +8,11 @@ const { bulkSaveMessages } = require('~/models/Message');
 /**
  * Factory function for creating an instance of ImportBatchBuilder.
  * @param {string} requestUserId - The ID of the user making the request.
+ * @param {string} [tenantId] - Optional tenant ID for multi-tenant isolation.
  * @returns {ImportBatchBuilder} - The newly created ImportBatchBuilder instance.
  */
-function createImportBatchBuilder(requestUserId) {
-  return new ImportBatchBuilder(requestUserId);
+function createImportBatchBuilder(requestUserId, tenantId) {
+  return new ImportBatchBuilder(requestUserId, tenantId);
 }
 
 /**
@@ -21,9 +22,11 @@ class ImportBatchBuilder {
   /**
    * Creates an instance of ImportBatchBuilder.
    * @param {string} requestUserId - The ID of the user making the import request.
+   * @param {string} [tenantId] - Optional tenant ID for multi-tenant isolation.
    */
-  constructor(requestUserId) {
+  constructor(requestUserId, tenantId) {
     this.requestUserId = requestUserId;
+    this.tenantId = tenantId;
     this.conversations = [];
     this.messages = [];
   }
@@ -78,6 +81,7 @@ class ImportBatchBuilder {
     const convo = {
       ...originalConvo,
       user: this.requestUserId,
+      tenantId: this.tenantId,
       conversationId: this.conversationId,
       title: title || 'Imported Chat',
       createdAt: createdAt,
@@ -151,6 +155,7 @@ class ImportBatchBuilder {
       isCreatedByUser: isCreatedByUser,
       model: model || this.model,
       user: this.requestUserId,
+      tenantId: this.tenantId,
       endpoint: endpoint ?? this.endpoint,
       unfinished: false,
       isEdited: false,

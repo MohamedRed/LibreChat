@@ -41,7 +41,7 @@ const validateConvoAccess = async (req, res, next) => {
 
   const userId = req.user?.id ?? req.user?._id ?? '';
   const type = ViolationTypes.CONVO_ACCESS;
-  const key = `${isEnabled(USE_REDIS) ? namespace : ''}:${userId}:${conversationId}`;
+  const key = `${isEnabled(USE_REDIS) ? namespace : ''}:${userId}:${req.user?.tenantId ?? 'no-tenant'}:${conversationId}`;
 
   try {
     if (cache) {
@@ -51,7 +51,7 @@ const validateConvoAccess = async (req, res, next) => {
       }
     }
 
-    const conversation = await searchConversation(conversationId);
+    const conversation = await searchConversation(conversationId, req.user?.tenantId);
 
     if (!conversation) {
       return next();

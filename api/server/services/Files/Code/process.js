@@ -136,6 +136,7 @@ const processCodeOutput = async ({
       conversationId,
       file_id: newFileId,
       user: req.user.id,
+      tenantId: req.user.tenantId,
     });
     const file_id = claimed.file_id;
     const isUpdate = file_id !== newFileId;
@@ -159,6 +160,7 @@ const processCodeOutput = async ({
         filename: name,
         conversationId,
         user: req.user.id,
+        tenantId: req.user.tenantId,
         type: `image/${appConfig.imageOutputType}`,
         createdAt: isUpdate ? claimed.createdAt : formattedDate,
         updatedAt: formattedDate,
@@ -217,6 +219,7 @@ const processCodeOutput = async ({
       type: mimeType,
       conversationId,
       user: req.user.id,
+      tenantId: req.user.tenantId,
       bytes: buffer.length,
       updatedAt: formattedDate,
       metadata: { fileIdentifier },
@@ -320,7 +323,15 @@ const primeFiles = async (options, apiKey) => {
   const resourceFiles = tool_resources?.[EToolResources.execute_code]?.files ?? [];
 
   // Get all files first
-  const allFiles = (await getFiles({ file_id: { $in: file_ids } }, null, { text: 0 })) ?? [];
+  const allFiles =
+    (await getFiles(
+      {
+        file_id: { $in: file_ids },
+        ...(req?.user?.tenantId ? { tenantId: req.user.tenantId } : {}),
+      },
+      null,
+      { text: 0 },
+    )) ?? [];
 
   // Filter by access if user and agent are provided
   let dbFiles;
@@ -405,6 +416,7 @@ const primeFiles = async (options, apiKey) => {
 
           await updateFile({
             file_id: file.file_id,
+            tenantId: options.req?.user?.tenantId,
             metadata: updatedMetadata,
           });
           sessions.set(session_id, true);

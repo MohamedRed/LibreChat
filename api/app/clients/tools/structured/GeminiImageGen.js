@@ -231,6 +231,7 @@ async function convertImagesToInlineData({ imageFiles, image_ids, req, fileStrat
     const fetchedFiles = await getFiles(
       {
         user: req.user.id,
+        tenantId: req.user.tenantId,
         file_id: { $in: idsToFetch },
         height: { $exists: true },
         width: { $exists: true },

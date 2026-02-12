@@ -218,7 +218,7 @@ const processDeleteRequest = async ({ req, files }) => {
   }
 
   await Promise.allSettled(promises);
-  await deleteFiles(resolvedFileIds);
+  await deleteFiles(resolvedFileIds, null, req.user?.tenantId);
 };
 
 /**
@@ -238,10 +238,11 @@ const processDeleteRequest = async ({ req, files }) => {
  * @param {string} params.fileName - The name that will be used to save the file (including extension)
  * @param {string} params.basePath - The base path or directory where the file will be saved or retrieved from.
  * @param {FileContext} params.context - The context of the file (e.g., 'avatar', 'image_generation', etc.)
+ * @param {string} [params.tenantId] - Optional tenant ID for multi-tenant isolation.
  * @returns {Promise<MongoFile>} A promise that resolves to the DB representation (MongoFile)
  *  of the processed file. It throws an error if the file processing fails at any stage.
  */
-const processFileURL = async ({ fileStrategy, userId, URL, fileName, basePath, context }) => {
+const processFileURL = async ({ fileStrategy, userId, URL, fileName, basePath, context, tenantId }) => {
   const { saveURL, getFileURL } = getStrategyFunctions(fileStrategy);
   try {
     const {
@@ -253,6 +254,7 @@ const processFileURL = async ({ fileStrategy, userId, URL, fileName, basePath, c
     return await createFile(
       {
         user: userId,
+        tenantId,
         file_id: v4(),
         bytes,
         filepath,
@@ -299,6 +301,7 @@ const processImageFile = async ({ req, res, metadata, returnFile = false }) => {
   const result = await createFile(
     {
       user: req.user.id,
+      tenantId: req.user.tenantId,
       file_id,
       temp_file_id,
       bytes,
@@ -351,6 +354,7 @@ const uploadImageBuffer = async ({ req, context, metadata = {}, resize = true })
   return await createFile(
     {
       user: req.user.id,
+      tenantId: req.user.tenantId,
       file_id,
       bytes,
       filepath,
@@ -437,6 +441,7 @@ const processFileUpload = async ({ req, res, metadata }) => {
   const result = await createFile(
     {
       user: req.user.id,
+      tenantId: req.user.tenantId,
       file_id: id ?? file_id,
       temp_file_id,
       bytes,
@@ -529,6 +534,7 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
         file_id,
         temp_file_id,
         user: req.user.id,
+        tenantId: req.user.tenantId,
         type,
         filepath: filepath ?? file.path,
         source: FileSources.text,
@@ -675,6 +681,7 @@ const processAgentFileUpload = async ({ req, res, metadata }) => {
 
   const fileInfo = removeNullishValues({
     user: req.user.id,
+    tenantId: req.user.tenantId,
     file_id,
     temp_file_id,
     bytes,
@@ -729,6 +736,7 @@ const processOpenAIFile = async ({
     filepath,
     usage: 1,
     user: userId,
+    tenantId: openai.req.user?.tenantId,
     context: _file.purpose,
     source,
     model: openai.req.body.model,
@@ -739,7 +747,7 @@ const processOpenAIFile = async ({
     await createFile(file, true);
   } else if (updateUsage) {
     try {
-      await updateFileUsage({ file_id });
+      await updateFileUsage({ file_id, tenantId: openai.req.user?.tenantId });
     } catch (error) {
       logger.error('Error updating file usage', error);
     }
@@ -769,6 +777,7 @@ const processOpenAIImageOutput = async ({ req, buffer, file_id, filename, fileEx
     ..._file,
     usage: 1,
     user: req.user.id,
+    tenantId: req.user.tenantId,
     type: mime.getType(fileExt),
     createdAt: formattedDate,
     updatedAt: formattedDate,
@@ -930,6 +939,7 @@ async function saveBase64Image(
       filepath,
       filename,
       user: req.user.id,
+      tenantId: req.user.tenantId,
       bytes: image.bytes,
       width: image.width,
       height: image.height,

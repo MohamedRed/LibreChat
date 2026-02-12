@@ -215,12 +215,14 @@ const deleteLocalFile = async (req, file) => {
 
   if (file.embedded && process.env.RAG_API_URL) {
     const jwtToken = generateShortLivedToken(req.user.id);
+    const tenantId = req.user?.tenantId;
     try {
       await axios.delete(`${process.env.RAG_API_URL}/documents`, {
         headers: {
           Authorization: `Bearer ${jwtToken}`,
           'Content-Type': 'application/json',
           accept: 'application/json',
+          ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
         },
         data: [file.file_id],
       });

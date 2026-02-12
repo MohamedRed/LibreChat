@@ -126,7 +126,11 @@ const callTool = async (req, res) => {
       return;
     }
 
-    const message = await getMessage({ user: req.user.id, messageId });
+    const message = await getMessage({
+      user: req.user.id,
+      messageId,
+      tenantId: req.user.tenantId,
+    });
     if (!message) {
       logger.debug(`[${toolId}/call] User ${req.user.id} attempted call with invalid message ID`);
       res.status(404).json({ message: 'Message not found' });
@@ -148,6 +152,9 @@ const callTool = async (req, res) => {
       );
       return res.status(403).json({ message: 'Forbidden: Insufficient permissions' });
     }
+    const processFileURLWithTenant = (args) =>
+      processFileURL({ ...args, tenantId: req.user?.tenantId });
+
     const { loadedTools } = await loadTools({
       user: req.user.id,
       tools: [toolId],
@@ -155,7 +162,7 @@ const callTool = async (req, res) => {
       options: {
         req,
         returnMetadata: true,
-        processFileURL,
+        processFileURL: processFileURLWithTenant,
         uploadImageBuffer,
       },
       webSearch: appConfig.webSearch,

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import * as Tabs from '@radix-ui/react-tabs';
 import { SettingsTabValues } from 'librechat-data-provider';
-import { MessageSquare, Command, DollarSign } from 'lucide-react';
+import { MessageSquare, Command, DollarSign, Globe } from 'lucide-react';
 import { Dialog, DialogPanel, DialogTitle, Transition, TransitionChild } from '@headlessui/react';
 import {
   GearIcon,
@@ -21,10 +21,13 @@ import {
   Data,
   Balance,
   Account,
+  Site,
 } from './SettingsTabs';
 import usePersonalizationAccess from '~/hooks/usePersonalizationAccess';
 import { useLocalize, TranslationKeys } from '~/hooks';
 import { useGetStartupConfig } from '~/data-provider';
+import { useAuthContext } from '~/hooks';
+import { SystemRoles } from 'librechat-data-provider';
 import { cn } from '~/utils';
 
 export default function Settings({ open, onOpenChange }: TDialogProps) {
@@ -34,18 +37,26 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
   const [activeTab, setActiveTab] = useState(SettingsTabValues.GENERAL);
   const tabRefs = useRef({});
   const { hasAnyPersonalizationFeature, hasMemoryOptOut } = usePersonalizationAccess();
+  const interfaceConfig = startupConfig?.interface ?? {};
+  const isMinimalUI = interfaceConfig.modelSelect === false && interfaceConfig.sidePanel === false;
+  const { user } = useAuthContext();
+  const isAdmin = user?.role === SystemRoles.ADMIN;
+  const showBalanceTab = isAdmin && startupConfig?.balance?.enabled;
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
-    const tabs: SettingsTabValues[] = [
-      SettingsTabValues.GENERAL,
-      SettingsTabValues.CHAT,
-      SettingsTabValues.COMMANDS,
-      SettingsTabValues.SPEECH,
-      ...(hasAnyPersonalizationFeature ? [SettingsTabValues.PERSONALIZATION] : []),
-      SettingsTabValues.DATA,
-      ...(startupConfig?.balance?.enabled ? [SettingsTabValues.BALANCE] : []),
-      SettingsTabValues.ACCOUNT,
-    ];
+    const tabs: SettingsTabValues[] = isMinimalUI
+      ? [SettingsTabValues.GENERAL, SettingsTabValues.CHAT, SettingsTabValues.SITE, SettingsTabValues.ACCOUNT]
+      : [
+          SettingsTabValues.GENERAL,
+          SettingsTabValues.CHAT,
+          SettingsTabValues.COMMANDS,
+          SettingsTabValues.SPEECH,
+          ...(hasAnyPersonalizationFeature ? [SettingsTabValues.PERSONALIZATION] : []),
+          SettingsTabValues.DATA,
+          SettingsTabValues.SITE,
+          ...(startupConfig?.balance?.enabled ? [SettingsTabValues.BALANCE] : []),
+          SettingsTabValues.ACCOUNT,
+        ];
     const currentIndex = tabs.indexOf(activeTab);
 
     switch (event.key) {
@@ -83,31 +94,40 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
       icon: <MessageSquare className="icon-sm" aria-hidden="true" />,
       label: 'com_nav_setting_chat',
     },
-    {
-      value: SettingsTabValues.COMMANDS,
-      icon: <Command className="icon-sm" aria-hidden="true" />,
-      label: 'com_nav_commands',
-    },
-    {
-      value: SettingsTabValues.SPEECH,
-      icon: <SpeechIcon className="icon-sm" aria-hidden="true" />,
-      label: 'com_nav_setting_speech',
-    },
-    ...(hasAnyPersonalizationFeature
-      ? [
+    ...(isMinimalUI
+      ? []
+      : [
           {
-            value: SettingsTabValues.PERSONALIZATION,
-            icon: <PersonalizationIcon />,
-            label: 'com_nav_setting_personalization' as TranslationKeys,
+            value: SettingsTabValues.COMMANDS,
+            icon: <Command className="icon-sm" aria-hidden="true" />,
+            label: 'com_nav_commands',
           },
-        ]
-      : []),
+          {
+            value: SettingsTabValues.SPEECH,
+            icon: <SpeechIcon className="icon-sm" aria-hidden="true" />,
+            label: 'com_nav_setting_speech',
+          },
+          ...(hasAnyPersonalizationFeature
+            ? [
+                {
+                  value: SettingsTabValues.PERSONALIZATION,
+                  icon: <PersonalizationIcon />,
+                  label: 'com_nav_setting_personalization' as TranslationKeys,
+                },
+              ]
+            : []),
+          {
+            value: SettingsTabValues.DATA,
+            icon: <DataIcon />,
+            label: 'com_nav_setting_data',
+          },
+        ]),
     {
-      value: SettingsTabValues.DATA,
-      icon: <DataIcon />,
-      label: 'com_nav_setting_data',
+      value: SettingsTabValues.SITE,
+      icon: <Globe className="icon-sm" aria-hidden="true" />,
+      label: 'com_nav_setting_site',
     },
-    ...(startupConfig?.balance?.enabled
+    ...(showBalanceTab
       ? [
           {
             value: SettingsTabValues.BALANCE,
@@ -226,13 +246,17 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
                     <Tabs.Content value={SettingsTabValues.CHAT} tabIndex={-1}>
                       <Chat />
                     </Tabs.Content>
-                    <Tabs.Content value={SettingsTabValues.COMMANDS} tabIndex={-1}>
-                      <Commands />
-                    </Tabs.Content>
-                    <Tabs.Content value={SettingsTabValues.SPEECH} tabIndex={-1}>
-                      <Speech />
-                    </Tabs.Content>
-                    {hasAnyPersonalizationFeature && (
+                    {!isMinimalUI && (
+                      <Tabs.Content value={SettingsTabValues.COMMANDS} tabIndex={-1}>
+                        <Commands />
+                      </Tabs.Content>
+                    )}
+                    {!isMinimalUI && (
+                      <Tabs.Content value={SettingsTabValues.SPEECH} tabIndex={-1}>
+                        <Speech />
+                      </Tabs.Content>
+                    )}
+                    {!isMinimalUI && hasAnyPersonalizationFeature && (
                       <Tabs.Content value={SettingsTabValues.PERSONALIZATION} tabIndex={-1}>
                         <Personalization
                           hasMemoryOptOut={hasMemoryOptOut}
@@ -240,10 +264,15 @@ export default function Settings({ open, onOpenChange }: TDialogProps) {
                         />
                       </Tabs.Content>
                     )}
-                    <Tabs.Content value={SettingsTabValues.DATA} tabIndex={-1}>
-                      <Data />
+                    {!isMinimalUI && (
+                      <Tabs.Content value={SettingsTabValues.DATA} tabIndex={-1}>
+                        <Data />
+                      </Tabs.Content>
+                    )}
+                    <Tabs.Content value={SettingsTabValues.SITE} tabIndex={-1}>
+                      <Site />
                     </Tabs.Content>
-                    {startupConfig?.balance?.enabled && (
+                    {showBalanceTab && (
                       <Tabs.Content value={SettingsTabValues.BALANCE} tabIndex={-1}>
                         <Balance />
                       </Tabs.Content>

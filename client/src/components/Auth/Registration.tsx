@@ -41,8 +41,12 @@ const Registration: React.FC = () => {
     onMutate: () => {
       setIsSubmitting(true);
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setIsSubmitting(false);
+      if (data?.checkout_url) {
+        window.location.assign(data.checkout_url);
+        return;
+      }
       setCountdown(3);
       const timer = setInterval(() => {
         setCountdown((prevCountdown) => {
@@ -64,7 +68,12 @@ const Registration: React.FC = () => {
     },
   });
 
-  const renderInput = (id: string, label: TranslationKeys, type: string, validation: object) => (
+  const renderInput = (
+    id: keyof TRegisterUser,
+    label: TranslationKeys,
+    type: string,
+    validation: object,
+  ) => (
     <div className="mb-4">
       <div className="relative">
         <input
@@ -72,10 +81,7 @@ const Registration: React.FC = () => {
           type={type}
           autoComplete={id}
           aria-label={localize(label)}
-          {...register(
-            id as 'name' | 'email' | 'username' | 'password' | 'confirm_password',
-            validation,
-          )}
+          {...register(id, validation)}
           aria-invalid={!!errors[id]}
           className="webkit-dark-styles transition-color peer w-full rounded-2xl border border-border-light bg-surface-primary px-3.5 pb-2.5 pt-3 text-text-primary duration-200 focus:border-green-500 focus:outline-none"
           placeholder=" "
@@ -137,6 +143,34 @@ const Registration: React.FC = () => {
                 value: 80,
                 message: localize('com_auth_name_max_length'),
               },
+            })}
+            {renderInput('company_name', 'com_auth_company_name', 'text', {
+              required: localize('com_auth_company_required'),
+              minLength: {
+                value: 2,
+                message: localize('com_auth_company_min_length'),
+              },
+              maxLength: {
+                value: 120,
+                message: localize('com_auth_company_max_length'),
+              },
+              setValueAs: (value: string) => value?.trim(),
+            })}
+            {renderInput('subdomain', 'com_auth_subdomain', 'text', {
+              required: localize('com_auth_subdomain_required'),
+              minLength: {
+                value: 3,
+                message: localize('com_auth_subdomain_min_length'),
+              },
+              maxLength: {
+                value: 63,
+                message: localize('com_auth_subdomain_max_length'),
+              },
+              pattern: {
+                value: /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/,
+                message: localize('com_auth_subdomain_pattern'),
+              },
+              setValueAs: (value: string) => value?.trim().toLowerCase(),
             })}
             {renderInput('username', 'com_auth_username', 'text', {
               minLength: {

@@ -44,7 +44,7 @@ const {
 } = require('librechat-data-provider');
 const { spendTokens, spendStructuredTokens } = require('~/models/spendTokens');
 const { encodeAndFormat } = require('~/server/services/Files/images/encode');
-const { createContextHandlers } = require('~/app/clients/prompts');
+const { createContextHandlers, createSiteContext } = require('~/app/clients/prompts');
 const { getConvoFiles } = require('~/models/Conversation');
 const BaseClient = require('~/app/clients/BaseClient');
 const { getRoleByName } = require('~/models/Role');
@@ -396,9 +396,10 @@ class AgentClient extends BaseClient {
         : []),
     ];
 
+    const latestMessage = orderedMessages[orderedMessages.length - 1];
+
     if (this.options.attachments) {
       const attachments = await this.options.attachments;
-      const latestMessage = orderedMessages[orderedMessages.length - 1];
 
       if (this.message_file_map) {
         this.message_file_map[latestMessage.messageId] = attachments;
@@ -412,6 +413,18 @@ class AgentClient extends BaseClient {
       const files = await this.processAttachments(latestMessage, attachments);
 
       this.options.attachments = files;
+    }
+
+    if (latestMessage) {
+      const siteContext = await createSiteContext(
+        this.options.req,
+        latestMessage.text,
+      );
+      if (siteContext) {
+        latestMessage.fileContext = latestMessage.fileContext
+          ? `${siteContext}\n${latestMessage.fileContext}`
+          : siteContext;
+      }
     }
 
     /** Note: Bedrock uses legacy RAG API handling */
@@ -478,7 +491,6 @@ class AgentClient extends BaseClient {
     const sharedRunContextParts = [];
 
     /** File context from the latest message (attachments) */
-    const latestMessage = orderedMessages[orderedMessages.length - 1];
     if (latestMessage?.fileContext) {
       sharedRunContextParts.push(latestMessage.fileContext);
     }
@@ -637,6 +649,17 @@ class AgentClient extends BaseClient {
       return;
     }
 
+    const tenantId = this.options.req?.user?.tenantId;
+    const getConvoFilesForTenant = (conversationId) => getConvoFiles(conversationId, tenantId);
+    const getToolFilesByIdsForTenant = (fileIds, toolResourceSet) =>
+      db.getToolFilesByIds(fileIds, toolResourceSet, tenantId);
+    const getFilesForTenant = (filter, sortOptions, selectFields) =>
+      db.getFiles(
+        { ...filter, ...(tenantId ? { tenantId } : {}) },
+        sortOptions,
+        selectFields,
+      );
+
     const agent = await initializeAgent(
       {
         req: this.options.req,
@@ -650,12 +673,12 @@ class AgentClient extends BaseClient {
         },
       },
       {
-        getConvoFiles,
-        getFiles: db.getFiles,
+        getConvoFiles: getConvoFilesForTenant,
+        getFiles: getFilesForTenant,
         getUserKey: db.getUserKey,
         updateFilesUsage: db.updateFilesUsage,
         getUserKeyValues: db.getUserKeyValues,
-        getToolFilesByIds: db.getToolFilesByIds,
+        getToolFilesByIds: getToolFilesByIdsForTenant,
         getCodeGeneratedFiles: db.getCodeGeneratedFiles,
       },
     );

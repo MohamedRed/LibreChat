@@ -298,7 +298,11 @@ const useNewConvo = (index = 0) => {
       let preset = _preset;
       const result = getDefaultModelSpec(startupConfig);
       const defaultModelSpec = result?.default ?? result?.last;
-      if (
+      const enforceModelSpecs = startupConfig?.modelSpecs?.enforce === true;
+      if (enforceModelSpecs && defaultModelSpec) {
+        // Hard override when model specs are enforced
+        preset = getModelSpecPreset(defaultModelSpec);
+      } else if (
         !preset &&
         startupConfig &&
         (startupConfig.modelSpecs?.prioritize === true ||

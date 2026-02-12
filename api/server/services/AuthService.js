@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const { webcrypto } = require('node:crypto');
 const {
@@ -180,7 +181,9 @@ const registerUser = async (user, additionalData = {}) => {
     return { status: 404, message: errorMessage };
   }
 
-  const { email, password, name, username, provider } = user;
+  const { email, password, name, username, provider, company_name, subdomain } = user;
+  const normalizedCompany = company_name?.trim();
+  const normalizedSubdomain = subdomain?.trim().toLowerCase();
 
   let newUserId;
   try {
@@ -206,6 +209,30 @@ const registerUser = async (user, additionalData = {}) => {
       return { status: 200, message: genericVerificationMessage };
     }
 
+    if (!process.env.CONTROL_PLANE_URL) {
+      logger.error('[registerUser] CONTROL_PLANE_URL not configured');
+      return { status: 500, message: 'Control plane not configured' };
+    }
+
+    let tenantId;
+    let checkoutUrl;
+    try {
+      const signupResponse = await axios.post(`${process.env.CONTROL_PLANE_URL}/api/signup`, {
+        email,
+        company_name: normalizedCompany,
+        subdomain: normalizedSubdomain,
+      });
+      tenantId = signupResponse.data?.tenant_id;
+      checkoutUrl = signupResponse.data?.checkout_url;
+      if (!tenantId) {
+        logger.error('[registerUser] Control plane signup returned no tenant_id');
+        return { status: 502, message: 'Failed to create tenant' };
+      }
+    } catch (signupError) {
+      logger.error('[registerUser] Failed to create tenant in control plane', signupError);
+      return { status: 502, message: 'Failed to create tenant' };
+    }
+
     //determine if this is the first registered user (not counting anonymous_user)
     const isFirstRegisteredUser = (await countUsers()) === 0;
 
@@ -218,6 +245,7 @@ const registerUser = async (user, additionalData = {}) => {
       avatar: null,
       role: isFirstRegisteredUser ? SystemRoles.ADMIN : SystemRoles.USER,
       password: bcrypt.hashSync(password, salt),
+      tenantId,
       ...additionalData,
     };
 
@@ -236,7 +264,12 @@ const registerUser = async (user, additionalData = {}) => {
       await updateUser(newUserId, { emailVerified: true });
     }
 
-    return { status: 200, message: genericVerificationMessage };
+    return {
+      status: 200,
+      message: genericVerificationMessage,
+      checkout_url: checkoutUrl,
+      tenant_id: tenantId,
+    };
   } catch (err) {
     logger.error('[registerUser] Error in registering user:', err);
     if (newUserId) {

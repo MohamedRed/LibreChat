@@ -1,0 +1,4 @@
+#!include:.gitignore
+!packages/api/src/memory/
+!packages/api/src/memory/**
+!librechat.yaml

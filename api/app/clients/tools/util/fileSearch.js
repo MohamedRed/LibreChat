@@ -36,7 +36,15 @@ const primeFiles = async (options) => {
   const resourceFiles = tool_resources?.[EToolResources.file_search]?.files ?? [];
 
   // Get all files first
-  const allFiles = (await getFiles({ file_id: { $in: file_ids } }, null, { text: 0 })) ?? [];
+  const allFiles =
+    (await getFiles(
+      {
+        file_id: { $in: file_ids },
+        ...(req?.user?.tenantId ? { tenantId: req.user.tenantId } : {}),
+      },
+      null,
+      { text: 0 },
+    )) ?? [];
 
   // Filter by access if user and agent are provided
   let dbFiles;
@@ -85,7 +93,7 @@ const primeFiles = async (options) => {
  * @param {boolean} [options.fileCitations=false] - Whether to include citation instructions
  * @returns
  */
-const createFileSearchTool = async ({ userId, files, entity_id, fileCitations = false }) => {
+const createFileSearchTool = async ({ userId, files, entity_id, fileCitations = false, tenantId }) => {
   return tool(
     async ({ query }) => {
       if (files.length === 0) {
@@ -120,6 +128,7 @@ const createFileSearchTool = async ({ userId, files, entity_id, fileCitations = 
             headers: {
               Authorization: `Bearer ${jwtToken}`,
               'Content-Type': 'application/json',
+              ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
             },
           })
           .catch((error) => {

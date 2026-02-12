@@ -6,6 +6,7 @@ export interface IMessage extends Document {
   messageId: string;
   conversationId: string;
   user: string;
+  tenantId?: string;
   model?: string;
   endpoint?: string;
   conversationSignature?: string;

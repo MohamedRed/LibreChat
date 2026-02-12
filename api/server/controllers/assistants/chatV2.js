@@ -199,7 +199,7 @@ const chatV2 = async (req, res) => {
     const getRequestFileIds = async () => {
       let thread_file_ids = [];
       if (convoId) {
-        const convo = await getConvo(req.user.id, convoId);
+        const convo = await getConvo(req.user.id, convoId, req.user.tenantId);
         if (convo && convo.file_ids) {
           thread_file_ids = convo.file_ids;
         }

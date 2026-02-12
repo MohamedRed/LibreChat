@@ -80,6 +80,7 @@ function cloneMessagesWithTimestamps(messagesToClone, importBatchBuilder) {
  * @param {boolean} [params.records=false] - Optional flag for returning actual database records or resulting conversation and messages.
  * @param {boolean} [params.splitAtTarget=false] - Optional flag for splitting the messages at the target message level.
  * @param {string} [params.latestMessageId] - latestMessageId - Required if splitAtTarget is true.
+ * @param {string} [params.tenantId] - Optional tenant ID for multi-tenant isolation.
  * @param {(userId: string) => ImportBatchBuilder} [params.builderFactory] - Optional factory function for creating an ImportBatchBuilder instance.
  * @returns {Promise<TForkConvoResponse>} The response after forking the conversation.
  */
@@ -92,13 +93,17 @@ async function forkConversation({
   records = false,
   splitAtTarget = false,
   latestMessageId,
-  builderFactory = createImportBatchBuilder,
+  tenantId,
+  builderFactory,
 }) {
   try {
-    const originalConvo = await getConvo(requestUserId, originalConvoId);
+    const resolvedBuilderFactory =
+      builderFactory ?? ((userId) => createImportBatchBuilder(userId, tenantId));
+    const originalConvo = await getConvo(requestUserId, originalConvoId, tenantId);
     let originalMessages = await getMessages({
       user: requestUserId,
       conversationId: originalConvoId,
+      ...(tenantId ? { tenantId } : {}),
     });
 
     let targetMessageId = targetId;
@@ -109,7 +114,7 @@ async function forkConversation({
       targetMessageId = latestMessageId;
     }
 
-    const importBatchBuilder = builderFactory(requestUserId);
+    const importBatchBuilder = resolvedBuilderFactory(requestUserId);
     importBatchBuilder.startConversation(originalConvo.endpoint ?? EModelEndpoint.openAI);
 
     let messagesToClone = [];
@@ -146,10 +151,15 @@ async function forkConversation({
       return result;
     }
 
-    const conversation = await getConvo(requestUserId, result.conversation.conversationId);
+    const conversation = await getConvo(
+      requestUserId,
+      result.conversation.conversationId,
+      tenantId,
+    );
     const messages = await getMessages({
       user: requestUserId,
       conversationId: conversation.conversationId,
+      ...(tenantId ? { tenantId } : {}),
     });
 
     return {
@@ -360,9 +370,9 @@ function splitAtTargetLevel(messages, targetMessageId) {
  * @param {string} params.conversationId - The ID of the conversation to duplicate.
  * @returns {Promise<{ conversation: TConversation, messages: TMessage[] }>} The duplicated conversation and messages.
  */
-async function duplicateConversation({ userId, conversationId }) {
+async function duplicateConversation({ userId, conversationId, tenantId }) {
   // Get original conversation
-  const originalConvo = await getConvo(userId, conversationId);
+  const originalConvo = await getConvo(userId, conversationId, tenantId);
   if (!originalConvo) {
     throw new Error('Conversation not found');
   }
@@ -371,6 +381,7 @@ async function duplicateConversation({ userId, conversationId }) {
   const originalMessages = await getMessages({
     user: userId,
     conversationId,
+    ...(tenantId ? { tenantId } : {}),
   });
 
   const messagesToClone = getMessagesUpToTargetLevel(
@@ -378,7 +389,7 @@ async function duplicateConversation({ userId, conversationId }) {
     originalMessages[originalMessages.length - 1].messageId,
   );
 
-  const importBatchBuilder = createImportBatchBuilder(userId);
+  const importBatchBuilder = createImportBatchBuilder(userId, tenantId);
   importBatchBuilder.startConversation(originalConvo.endpoint ?? EModelEndpoint.openAI);
 
   cloneMessagesWithTimestamps(messagesToClone, importBatchBuilder);
@@ -393,10 +404,11 @@ async function duplicateConversation({ userId, conversationId }) {
     `user: ${userId} | New conversation "${originalConvo.title}" duplicated from conversation ID ${conversationId}`,
   );
 
-  const conversation = await getConvo(userId, result.conversation.conversationId);
+  const conversation = await getConvo(userId, result.conversation.conversationId, tenantId);
   const messages = await getMessages({
     user: userId,
     conversationId: conversation.conversationId,
+    ...(tenantId ? { tenantId } : {}),
   });
 
   return {

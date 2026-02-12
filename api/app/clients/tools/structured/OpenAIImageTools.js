@@ -274,6 +274,7 @@ Error Message: ${error.message}`);
         const fetchedFiles = await getFiles(
           {
             user: req.user.id,
+            tenantId: req.user.tenantId,
             file_id: { $in: idsToFetch },
             height: { $exists: true },
             width: { $exists: true },

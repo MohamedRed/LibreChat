@@ -100,7 +100,12 @@ async function prepareImagesLocal(req, file) {
   const filepath = path.join(publicPath, file.filepath);
 
   const promises = [];
-  promises.push(updateFile({ file_id: file.file_id }));
+  promises.push(
+    updateFile({
+      file_id: file.file_id,
+      tenantId: req.user?.tenantId,
+    }),
+  );
   promises.push(encodeImage(filepath));
   return await Promise.all(promises);
 }

@@ -178,7 +178,7 @@ const createErrorHandler = ({ req, res, getContext, originPath = '/assistants/ch
 
       finalEvent = {
         final: true,
-        conversation: await getConvo(req.user.id, conversationId),
+        conversation: await getConvo(req.user.id, conversationId, req.user.tenantId),
         runMessages,
       };
     } catch (error) {

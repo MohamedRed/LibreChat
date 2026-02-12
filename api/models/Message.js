@@ -48,9 +48,11 @@ async function saveMessage(req, params, metadata) {
   }
 
   try {
+    const tenantId = req.user?.tenantId;
     const update = {
       ...params,
       user: req.user.id,
+      tenantId,
       messageId: params.newMessageId || params.messageId,
     };
 
@@ -75,7 +77,11 @@ async function saveMessage(req, params, metadata) {
       update.tokenCount = 0;
     }
     const message = await Message.findOneAndUpdate(
-      { messageId: params.messageId, user: req.user.id },
+      {
+        messageId: params.messageId,
+        user: req.user.id,
+        ...(tenantId ? { tenantId } : {}),
+      },
       update,
       { upsert: true, new: true },
     );
@@ -95,6 +101,7 @@ async function saveMessage(req, params, metadata) {
         const existingMessage = await Message.findOne({
           messageId: params.messageId,
           user: req.user.id,
+          ...(tenantId ? { tenantId } : {}),
         });
 
         // If we found it, return it
@@ -139,7 +146,11 @@ async function bulkSaveMessages(messages, overrideTimestamp = false) {
   try {
     const bulkOps = messages.map((message) => ({
       updateOne: {
-        filter: { messageId: message.messageId },
+        filter: {
+          messageId: message.messageId,
+          ...(message.user ? { user: message.user } : {}),
+          ...(message.tenantId ? { tenantId: message.tenantId } : {}),
+        },
         update: message,
         timestamps: !overrideTimestamp,
         upsert: true,
@@ -174,6 +185,7 @@ async function recordMessage({
   messageId,
   conversationId,
   parentMessageId,
+  tenantId,
   ...rest
 }) {
   try {
@@ -184,13 +196,18 @@ async function recordMessage({
       messageId,
       conversationId,
       parentMessageId,
+      tenantId,
       ...rest,
     };
 
-    return await Message.findOneAndUpdate({ user, messageId }, message, {
-      upsert: true,
-      new: true,
-    });
+    return await Message.findOneAndUpdate(
+      { user, messageId, ...(tenantId ? { tenantId } : {}) },
+      message,
+      {
+        upsert: true,
+        new: true,
+      },
+    );
   } catch (err) {
     logger.error('Error recording message:', err);
     throw err;
@@ -211,7 +228,11 @@ async function recordMessage({
  */
 async function updateMessageText(req, { messageId, text }) {
   try {
-    await Message.updateOne({ messageId, user: req.user.id }, { text });
+    const tenantId = req.user?.tenantId;
+    await Message.updateOne(
+      { messageId, user: req.user.id, ...(tenantId ? { tenantId } : {}) },
+      { text },
+    );
   } catch (err) {
     logger.error('Error updating message text:', err);
     throw err;
@@ -239,8 +260,9 @@ async function updateMessageText(req, { messageId, text }) {
 async function updateMessage(req, message, metadata) {
   try {
     const { messageId, ...update } = message;
+    const tenantId = req.user?.tenantId;
     const updatedMessage = await Message.findOneAndUpdate(
-      { messageId, user: req.user.id },
+      { messageId, user: req.user.id, ...(tenantId ? { tenantId } : {}) },
       update,
       {
         new: true,
@@ -284,10 +306,19 @@ async function updateMessage(req, message, metadata) {
  */
 async function deleteMessagesSince(req, { messageId, conversationId }) {
   try {
-    const message = await Message.findOne({ messageId, user: req.user.id }).lean();
+    const tenantId = req.user?.tenantId;
+    const message = await Message.findOne({
+      messageId,
+      user: req.user.id,
+      ...(tenantId ? { tenantId } : {}),
+    }).lean();
 
     if (message) {
-      const query = Message.find({ conversationId, user: req.user.id });
+      const query = Message.find({
+        conversationId,
+        user: req.user.id,
+        ...(tenantId ? { tenantId } : {}),
+      });
       return await query.deleteMany({
         createdAt: { $gt: message.createdAt },
       });
@@ -329,11 +360,12 @@ async function getMessages(filter, select) {
  * @returns {Promise<TMessage | null>} The message that matches the criteria or null if not found
  * @throws {Error} If there is an error in retrieving the message
  */
-async function getMessage({ user, messageId }) {
+async function getMessage({ user, messageId, tenantId }) {
   try {
     return await Message.findOne({
       user,
       messageId,
+      ...(tenantId ? { tenantId } : {}),
     }).lean();
   } catch (err) {
     logger.error('Error getting message:', err);

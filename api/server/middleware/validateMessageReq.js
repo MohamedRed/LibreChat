@@ -12,7 +12,7 @@ const validateMessageReq = async (req, res, next) => {
     conversationId = req.body.message.conversationId;
   }
 
-  const conversation = await getConvo(req.user.id, conversationId);
+  const conversation = await getConvo(req.user.id, conversationId, req.user.tenantId);
 
   if (!conversation) {
     return res.status(404).json({ error: 'Conversation not found' });

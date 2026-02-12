@@ -92,6 +92,7 @@ async function deleteDocumentsWithoutUserField(index, indexName) {
 async function ensureFilterableAttributes(client) {
   let settingsUpdated = false;
   let hasOrphanedDocs = false;
+  const requiredFilters = ['user', 'tenantId'];
 
   try {
     // Check and update messages index
@@ -99,12 +100,15 @@ async function ensureFilterableAttributes(client) {
       const messagesIndex = client.index('messages');
       const settings = await messagesIndex.getSettings();
 
-      if (!settings.filterableAttributes || !settings.filterableAttributes.includes('user')) {
-        logger.info('[indexSync] Configuring messages index to filter by user...');
+      const currentFilters = new Set(settings.filterableAttributes || []);
+      const needsUpdate = requiredFilters.some((filter) => !currentFilters.has(filter));
+      if (needsUpdate) {
+        requiredFilters.forEach((filter) => currentFilters.add(filter));
+        logger.info('[indexSync] Configuring messages index to filter by user and tenantId...');
         await messagesIndex.updateSettings({
-          filterableAttributes: ['user'],
+          filterableAttributes: Array.from(currentFilters),
         });
-        logger.info('[indexSync] Messages index configured for user filtering');
+        logger.info('[indexSync] Messages index configured for user/tenant filtering');
         settingsUpdated = true;
       }
 
@@ -131,12 +135,15 @@ async function ensureFilterableAttributes(client) {
       const convosIndex = client.index('convos');
       const settings = await convosIndex.getSettings();
 
-      if (!settings.filterableAttributes || !settings.filterableAttributes.includes('user')) {
-        logger.info('[indexSync] Configuring convos index to filter by user...');
+      const currentFilters = new Set(settings.filterableAttributes || []);
+      const needsUpdate = requiredFilters.some((filter) => !currentFilters.has(filter));
+      if (needsUpdate) {
+        requiredFilters.forEach((filter) => currentFilters.add(filter));
+        logger.info('[indexSync] Configuring convos index to filter by user and tenantId...');
         await convosIndex.updateSettings({
-          filterableAttributes: ['user'],
+          filterableAttributes: Array.from(currentFilters),
         });
-        logger.info('[indexSync] Convos index configured for user filtering');
+        logger.info('[indexSync] Convos index configured for user/tenant filtering');
         settingsUpdated = true;
       }
 

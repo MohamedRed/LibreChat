@@ -1671,6 +1671,10 @@ export enum SettingsTabValues {
    */
   DATA = 'data',
   /**
+   * Tab for Site Settings
+   */
+  SITE = 'site',
+  /**
    * Tab for Balance Settings
    */
   BALANCE = 'balance',

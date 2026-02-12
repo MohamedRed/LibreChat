@@ -85,6 +85,7 @@ async function saveUserMessage(req, params) {
     endpoint: params.endpoint,
     messageId: params.messageId,
     conversationId: params.conversationId,
+    tenantId: req.user?.tenantId,
     parentMessageId: params.parentMessageId ?? Constants.NO_PARENT,
     /* For messages, use the assistant_id instead of model */
     model: params.assistant_id,
@@ -148,6 +149,7 @@ async function saveAssistantMessage(req, params) {
     conversationId: params.conversationId,
     parentMessageId: params.parentMessageId,
     thread_id: params.thread_id,
+    tenantId: req.user?.tenantId,
     /* For messages, use the assistant_id instead of model */
     model: params.assistant_id,
     content: params.content,
@@ -245,7 +247,13 @@ async function syncMessages({
    * @param {dbMessage} params.apiMessage
    */
   const processNewMessage = async ({ dbMessage, apiMessage }) => {
-    recordPromises.push(recordMessage({ ...dbMessage, user: openai.req.user.id }));
+    recordPromises.push(
+      recordMessage({
+        ...dbMessage,
+        user: openai.req.user.id,
+        tenantId: openai.req.user.tenantId,
+      }),
+    );
 
     if (!apiMessage.id.includes('msg_')) {
       return;
@@ -472,7 +480,11 @@ async function checkMessageGaps({
     apiMessages.push(currentMessage);
   }
 
-  const dbMessages = await getMessages({ conversationId });
+  const tenantId = openai?.req?.user?.tenantId;
+  const dbMessages = await getMessages({
+    conversationId,
+    ...(tenantId ? { tenantId } : {}),
+  });
   const assistant_id = dbMessages?.[0]?.model;
 
   const syncedMessages = await syncMessages({

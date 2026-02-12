@@ -128,6 +128,9 @@ async function processRequiredActions(client, requiredActions) {
     })
     .filter((toolName) => !!toolName);
 
+  const processFileURLWithTenant = (args) =>
+    processFileURL({ ...args, tenantId: client.req.user?.tenantId });
+
   const { loadedTools } = await loadTools({
     user: client.req.user.id,
     model: client.req.body.model ?? 'gpt-4o-mini',
@@ -135,7 +138,7 @@ async function processRequiredActions(client, requiredActions) {
     functions: true,
     endpoint: client.req.body.endpoint,
     options: {
-      processFileURL,
+      processFileURL: processFileURLWithTenant,
       req: client.req,
       uploadImageBuffer,
       openAIApiKey: client.apiKey,
@@ -869,6 +872,9 @@ async function loadAgentTools({
     });
   }
 
+  const processFileURLWithTenant = (args) =>
+    processFileURL({ ...args, tenantId: req.user?.tenantId });
+
   const { loadedTools, toolContextMap } = await loadTools({
     agent,
     signal,
@@ -881,7 +887,7 @@ async function loadAgentTools({
       res,
       openAIApiKey,
       tool_resources,
-      processFileURL,
+      processFileURL: processFileURLWithTenant,
       uploadImageBuffer,
       returnMetadata: true,
       [Tools.web_search]: webSearchCallbacks,

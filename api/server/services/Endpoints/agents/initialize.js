@@ -176,6 +176,16 @@ const initializeClient = async ({ req, res, signal, endpointOption }) => {
   const conversationId = req.body.conversationId;
   /** @type {string | undefined} */
   const parentMessageId = req.body.parentMessageId;
+  const tenantId = req.user?.tenantId;
+  const getConvoFilesForTenant = (convoId) => getConvoFiles(convoId, tenantId);
+  const getToolFilesByIdsForTenant = (fileIds, toolResourceSet) =>
+    db.getToolFilesByIds(fileIds, toolResourceSet, tenantId);
+  const getFilesForTenant = (filter, sortOptions, selectFields) =>
+    db.getFiles(
+      { ...filter, ...(tenantId ? { tenantId } : {}) },
+      sortOptions,
+      selectFields,
+    );
 
   const primaryConfig = await initializeAgent(
     {
@@ -191,14 +201,14 @@ const initializeClient = async ({ req, res, signal, endpointOption }) => {
       isInitialAgent: true,
     },
     {
-      getConvoFiles,
-      getFiles: db.getFiles,
+      getConvoFiles: getConvoFilesForTenant,
+      getFiles: getFilesForTenant,
       getUserKey: db.getUserKey,
       getMessages: db.getMessages,
       updateFilesUsage: db.updateFilesUsage,
       getUserKeyValues: db.getUserKeyValues,
       getUserCodeFiles: db.getUserCodeFiles,
-      getToolFilesByIds: db.getToolFilesByIds,
+      getToolFilesByIds: getToolFilesByIdsForTenant,
       getCodeGeneratedFiles: db.getCodeGeneratedFiles,
     },
   );
@@ -259,15 +269,15 @@ const initializeClient = async ({ req, res, signal, endpointOption }) => {
         endpointOption,
         allowedProviders,
       },
-      {
-        getConvoFiles,
-        getFiles: db.getFiles,
+    {
+        getConvoFiles: getConvoFilesForTenant,
+        getFiles: getFilesForTenant,
         getUserKey: db.getUserKey,
         getMessages: db.getMessages,
         updateFilesUsage: db.updateFilesUsage,
         getUserKeyValues: db.getUserKeyValues,
         getUserCodeFiles: db.getUserCodeFiles,
-        getToolFilesByIds: db.getToolFilesByIds,
+        getToolFilesByIds: getToolFilesByIdsForTenant,
         getCodeGeneratedFiles: db.getCodeGeneratedFiles,
       },
     );

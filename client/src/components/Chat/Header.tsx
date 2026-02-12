@@ -24,6 +24,7 @@ export default function Header() {
     () => startupConfig?.interface ?? defaultInterface,
     [startupConfig],
   );
+  const isMinimalUI = interfaceConfig.modelSelect === false && interfaceConfig.sidePanel === false;
 
   const hasAccessToBookmarks = useHasAccess({
     permissionType: PermissionTypes.BOOKMARKS,
@@ -66,21 +67,25 @@ export default function Header() {
             >
               <ModelSelector startupConfig={startupConfig} />
               {interfaceConfig.presets === true && interfaceConfig.modelSelect && <PresetsMenu />}
-              {hasAccessToBookmarks === true && <BookmarkMenu />}
-              {hasAccessToMultiConvo === true && <AddMultiConvo />}
+              {hasAccessToBookmarks === true && !isMinimalUI && <BookmarkMenu />}
+              {hasAccessToMultiConvo === true && !isMinimalUI && <AddMultiConvo />}
               {isSmallScreen && (
                 <>
-                  <ExportAndShareMenu
-                    isSharedButtonEnabled={startupConfig?.sharedLinksEnabled ?? false}
-                  />
-                  <TemporaryChat />
+                  {!isMinimalUI && (
+                    <>
+                      <ExportAndShareMenu
+                        isSharedButtonEnabled={startupConfig?.sharedLinksEnabled ?? false}
+                      />
+                      <TemporaryChat />
+                    </>
+                  )}
                 </>
               )}
             </div>
           )}
         </div>
 
-        {!isSmallScreen && (
+        {!isSmallScreen && !isMinimalUI && (
           <div className="flex items-center gap-2">
             <ExportAndShareMenu
               isSharedButtonEnabled={startupConfig?.sharedLinksEnabled ?? false}

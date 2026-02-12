@@ -629,6 +629,7 @@ describe('BaseClient', () => {
 
       const user = {
         id: 'user-id',
+        tenantId: 'tenant-id',
       };
 
       getConvo.mockResolvedValue(existingConvo);
@@ -653,7 +654,11 @@ describe('BaseClient', () => {
         conversationId: existingConvo.conversationId,
       });
 
-      expect(getConvo).toHaveBeenCalledWith(user.id, existingConvo.conversationId);
+      expect(getConvo).toHaveBeenCalledWith(
+        user.id,
+        existingConvo.conversationId,
+        user.tenantId,
+      );
       expect(TestClient.conversationId).toBe(existingConvo.conversationId);
       expect(response.conversationId).toBe(existingConvo.conversationId);
       expect(TestClient.fetchedConvo).toBe(true);
