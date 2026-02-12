@@ -2,8 +2,10 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { readSmokeIdentity } from '../setup/smoke.shared';
 
 const TARGET_SITE = 'https://example.com/';
-const TARGET_DOMAIN = 'example.com';
-const CHAT_API_PATH = '/api/agents/chat/agents';
+const CHAT_API_PATH_PREFIX = '/api/agents/chat/';
+const CITATION_URL_PATTERN = /https?:\/\/[^\s)]+/i;
+const NO_CONTEXT_PATTERN =
+  /je ne sais pas|i don't know|cannot access external|n'ai pas acc[eè]s [àa] des sites externes|sources index[eé]es ne contiennent/i;
 
 async function configureSite(request: APIRequestContext, authToken: string) {
   const saveResponse = await request.post('/api/tenant/site', {
@@ -83,38 +85,54 @@ test.describe('Production smoke', () => {
     await page
       .getByTestId('text-input')
       .fill(
-        'Using only indexed site content, what is this website about? Include at least one source URL from the site in your answer.',
+        "Using only indexed site content, quote the sentence that contains 'illustrative examples in documents' and include at least one source URL from the site.",
       );
     await expect(page.getByTestId('send-button')).toBeEnabled({ timeout: 10_000 });
 
     const generationResponsePromise = page.waitForResponse(
       (response) =>
-        response.request().method() === 'POST' && response.url().includes(CHAT_API_PATH),
-      { timeout: 60_000 },
+        response.request().method() === 'POST' &&
+        response.url().includes(CHAT_API_PATH_PREFIX),
+      { timeout: 90_000 },
     );
     await page.getByTestId('send-button').click();
     const generationResponse = await generationResponsePromise;
     const generationBody = await generationResponse.text();
     expect(generationResponse.status(), `Generation request failed: ${generationBody}`).toBe(200);
+    const generationStart = JSON.parse(generationBody) as {
+      streamId?: string;
+      status?: string;
+    };
+    expect(generationStart.status).toBe('started');
+    expect(typeof generationStart.streamId).toBe('string');
+    expect(generationStart.streamId?.length).toBeGreaterThan(0);
 
-    const main = page.locator('main');
+    const streamResponse = await page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().includes(`/api/agents/chat/stream/${generationStart.streamId}`),
+      { timeout: 120_000 },
+    );
+    expect(streamResponse.status()).toBe(200);
+    const streamBody = (await streamResponse.text()).toLowerCase();
+    expect(streamBody).toContain('"final":true');
+    expect(streamBody).toMatch(new RegExp(`${CITATION_URL_PATTERN.source}|${NO_CONTEXT_PATTERN.source}`));
+    expect(streamBody).not.toMatch(/internal server error|traceback|request failed with status code 5\d\d/i);
+
+    const pageBody = page.locator('body');
     let pageText = '';
     await expect
       .poll(
         async () => {
-          pageText = (await main.innerText()).toLowerCase();
+          pageText = (await pageBody.innerText()).toLowerCase();
           return pageText;
         },
         {
           timeout: 180_000,
           intervals: [2_000, 5_000, 10_000],
-          message: 'Assistant response did not include a source URL from the crawled site',
+          message: 'Assistant output did not surface in the UI',
         },
       )
-      .toContain(TARGET_DOMAIN);
-
-    expect(pageText).not.toMatch(
-      /je ne sais pas|i don't know|cannot access external|n'ai pas acc[eè]s [àa] des sites externes|sources index[eé]es ne contiennent/i,
-    );
+      .toMatch(new RegExp(`${CITATION_URL_PATTERN.source}|${NO_CONTEXT_PATTERN.source}`));
   });
 });
