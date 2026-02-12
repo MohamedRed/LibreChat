@@ -44,23 +44,12 @@ async function waitForCrawlSuccess(page: Page) {
 test.describe('Production smoke', () => {
   test('signup user can run crawl and get grounded answer with citation', async ({ page }) => {
     await page.goto('/c/new', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByTestId('nav-user')).toBeVisible({ timeout: 60_000 });
     await openWebsiteSettings(page);
 
     await page.getByTestId('tenant-site-base').fill(TARGET_SITE);
     await page.getByTestId('tenant-site-sitemap').fill('');
     await page.getByTestId('tenant-site-save').click();
-
-    // Keep smoke crawl tiny for CI runtime/cost.
-    const saveWithRules = await page.request.post('/api/tenant/site', {
-      data: {
-        base_url: TARGET_SITE,
-        sitemap_url: null,
-        crawl_rules: {
-          max_urls: 1,
-        },
-      },
-    });
-    expect(saveWithRules.ok()).toBeTruthy();
 
     await page.getByTestId('tenant-site-run-crawl').click();
     await waitForCrawlSuccess(page);
