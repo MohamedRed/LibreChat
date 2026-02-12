@@ -77,8 +77,22 @@ test.describe('Production smoke', () => {
       );
     await page.getByTestId('send-button').click();
 
-    const pageText = (await page.locator('main').innerText()).toLowerCase();
-    expect(pageText).toContain(TARGET_DOMAIN);
+    const main = page.locator('main');
+    let pageText = '';
+    await expect
+      .poll(
+        async () => {
+          pageText = (await main.innerText()).toLowerCase();
+          return pageText;
+        },
+        {
+          timeout: 180_000,
+          intervals: [2_000, 5_000, 10_000],
+          message: 'Assistant response did not include a source URL from the crawled site',
+        },
+      )
+      .toContain(TARGET_DOMAIN);
+
     expect(pageText).not.toMatch(
       /je ne sais pas|i don't know|cannot access external|n'ai pas acc[eè]s [àa] des sites externes|sources index[eé]es ne contiennent/i,
     );
