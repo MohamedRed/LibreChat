@@ -3,6 +3,7 @@ import { readSmokeIdentity } from '../setup/smoke.shared';
 
 const TARGET_SITE = 'https://example.com/';
 const TARGET_DOMAIN = 'example.com';
+const CHAT_API_PATH = '/api/agents/chat/agents';
 
 async function configureSite(request: APIRequestContext, authToken: string) {
   const saveResponse = await request.post('/api/tenant/site', {
@@ -69,13 +70,32 @@ test.describe('Production smoke', () => {
     await waitForCrawlSuccess(page.request, jobId, String(authToken));
 
     await page.goto('/c/new', { waitUntil: 'domcontentloaded' });
+    const endpointMenu = page.locator('#new-conversation-menu');
+    if (await endpointMenu.isVisible()) {
+      await endpointMenu.click();
+      const googleEndpoint = page.locator('#google').first();
+      if (await googleEndpoint.isVisible()) {
+        await googleEndpoint.click();
+      }
+    }
+
     await page.getByTestId('text-input').waitFor({ state: 'visible', timeout: 30_000 });
     await page
       .getByTestId('text-input')
       .fill(
         'Using only indexed site content, what is this website about? Include at least one source URL from the site in your answer.',
       );
+    await expect(page.getByTestId('send-button')).toBeEnabled({ timeout: 10_000 });
+
+    const generationResponsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' && response.url().includes(CHAT_API_PATH),
+      { timeout: 60_000 },
+    );
     await page.getByTestId('send-button').click();
+    const generationResponse = await generationResponsePromise;
+    const generationBody = await generationResponse.text();
+    expect(generationResponse.status(), `Generation request failed: ${generationBody}`).toBe(200);
 
     const main = page.locator('main');
     let pageText = '';
