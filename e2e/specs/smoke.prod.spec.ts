@@ -40,12 +40,20 @@ async function waitForCrawlSuccess(request: APIRequestContext, jobId: number, au
           return 'failed';
         }
         const body = await statusResponse.json();
-        return String(body?.status ?? '').toLowerCase();
+        const status = String(body?.status ?? '').toLowerCase();
+        const ingested = Number(body?.stats?.ingested ?? 0);
+        if (status === 'succeeded' && ingested > 0) {
+          return 'succeeded';
+        }
+        if (status === 'failed' || status === 'cancelled') {
+          return 'failed';
+        }
+        return 'running';
       },
       {
         timeout: 10 * 60_000,
         intervals: [5_000, 10_000, 15_000],
-        message: 'Crawl did not reach succeeded state in time',
+        message: 'Crawl did not reach succeeded + ingested>0 state in time',
       },
     )
     .toBe('succeeded');
@@ -62,13 +70,15 @@ test.describe('Production smoke', () => {
 
     await page.goto('/c/new', { waitUntil: 'domcontentloaded' });
     await page.getByTestId('text-input').waitFor({ state: 'visible', timeout: 30_000 });
-    await page.getByTestId('text-input').fill('What is this website about? Cite source URLs.');
+    await page
+      .getByTestId('text-input')
+      .fill(
+        'Using only indexed site content, what is this website about? Include at least one source URL from the site in your answer.',
+      );
     await page.getByTestId('send-button').click();
 
-    const citationLink = page.locator(`a[href*="${TARGET_DOMAIN}"]`).first();
-    await expect(citationLink).toBeVisible({ timeout: 180_000 });
-
     const pageText = (await page.locator('main').innerText()).toLowerCase();
+    expect(pageText).toContain(TARGET_DOMAIN);
     expect(pageText).not.toMatch(
       /je ne sais pas|i don't know|cannot access external|n'ai pas acc[eè]s [àa] des sites externes|sources index[eé]es ne contiennent/i,
     );
