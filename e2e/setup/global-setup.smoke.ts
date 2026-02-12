@@ -19,30 +19,30 @@ async function globalSetup(config: FullConfig): Promise<void> {
   const page = await context.newPage();
 
   try {
-    await page.goto(`${baseURL}/register`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.getByTestId('name').fill('E2E Smoke');
-    await page.getByTestId('company_name').fill(identity.companyName);
-    await page.getByTestId('subdomain').fill(identity.subdomain);
+    const registerResponse = await context.request.post('/api/auth/register', {
+      data: {
+        name: 'E2E Smoke',
+        company_name: identity.companyName,
+        subdomain: identity.subdomain,
+        email: identity.email,
+        password: identity.password,
+        confirm_password: identity.password,
+      },
+      timeout: 60_000,
+    });
+
+    if (!registerResponse.ok()) {
+      throw new Error(
+        `Smoke setup register failed with status=${registerResponse.status()} body=${await registerResponse.text()}`,
+      );
+    }
+
+    await page.goto(`${baseURL}/login`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await page.getByTestId('email').fill(identity.email);
     await page.getByTestId('password').fill(identity.password);
-    await page.getByTestId('confirm_password').fill(identity.password);
+    await page.getByRole('button', { name: 'Continue' }).click();
 
-    const hasTurnstile = (await page.locator('.cf-turnstile, iframe[src*="turnstile"]').count()) > 0;
-    if (hasTurnstile) {
-      throw new Error('Turnstile captcha is enabled; disable it for smoke CI users or add a bypass.');
-    }
-
-    await page.getByRole('button', { name: 'Submit registration' }).click();
-
-    await Promise.race([
-      page.waitForURL(/\/c\/new$/, { timeout: 120_000 }),
-      page.waitForURL(/checkout\.stripe\.com/, { timeout: 120_000 }),
-    ]);
-
-    if (/checkout\.stripe\.com/i.test(page.url())) {
-      throw new Error('Signup redirected to Stripe checkout. Smoke tests require direct app access after signup.');
-    }
-
+    await page.waitForURL(/\/c\/new$/, { timeout: 120_000 });
     await page.getByTestId('nav-user').waitFor({ state: 'visible', timeout: 30_000 });
     await context.storageState({ path: smokeStorageStatePath });
   } finally {
