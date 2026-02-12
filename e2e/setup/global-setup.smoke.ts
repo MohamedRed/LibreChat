@@ -19,7 +19,7 @@ async function globalSetup(config: FullConfig): Promise<void> {
   const page = await context.newPage();
 
   try {
-    const registerResponse = await context.request.post('/api/auth/register', {
+    const registerResponse = await context.request.post(`${baseURL}/api/auth/register`, {
       data: {
         name: 'E2E Smoke',
         company_name: identity.companyName,

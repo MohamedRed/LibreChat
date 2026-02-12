@@ -23,7 +23,7 @@ async function globalTeardown(): Promise<void> {
   });
 
   try {
-    const loginResponse = await context.request.post('/api/auth/login', {
+    const loginResponse = await context.request.post(`${identity.baseURL}/api/auth/login`, {
       data: {
         email: identity.email,
         password: identity.password,
@@ -34,7 +34,7 @@ async function globalTeardown(): Promise<void> {
       throw new Error(`Smoke teardown login failed: ${loginResponse.status()}`);
     }
 
-    const deleteResponse = await context.request.delete('/api/user/delete', {
+    const deleteResponse = await context.request.delete(`${identity.baseURL}/api/user/delete`, {
       timeout: 60_000,
     });
     const responseBody = await deleteResponse.json().catch(() => ({}));
