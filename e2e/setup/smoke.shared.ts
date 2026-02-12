@@ -5,6 +5,7 @@ export type SmokeIdentity = {
   runTag: string;
   email: string;
   password: string;
+  authToken?: string;
   companyName: string;
   subdomain: string;
   baseURL: string;

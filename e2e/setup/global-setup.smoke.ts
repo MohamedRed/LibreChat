@@ -49,6 +49,12 @@ async function globalSetup(config: FullConfig): Promise<void> {
         `Smoke setup login failed with status=${loginResponse.status()} body=${await loginResponse.text()}`,
       );
     }
+    const loginBody = await loginResponse.json().catch(() => ({}));
+    if (!loginBody?.token) {
+      throw new Error('Smoke setup login did not return token');
+    }
+    identity.authToken = String(loginBody.token);
+    writeSmokeIdentity(identity);
 
     await page.goto(`${baseURL}/c/new`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await page.waitForURL(/\/c\/new$/, { timeout: 120_000 });
