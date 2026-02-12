@@ -33,10 +33,21 @@ async function globalTeardown(): Promise<void> {
     if (!loginResponse.ok()) {
       throw new Error(`Smoke teardown login failed: ${loginResponse.status()}`);
     }
+    const loginBody = await loginResponse.json().catch(() => ({}));
+    const token = loginBody?.token;
+    if (!token) {
+      throw new Error('Smoke teardown login did not return a token');
+    }
 
-    const deleteResponse = await context.request.delete(`${identity.baseURL}/api/user/delete`, {
-      timeout: 60_000,
-    });
+    const deleteResponse = await context.request.delete(
+      `${identity.baseURL}/api/user/delete`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        timeout: 60_000,
+      },
+    );
     const responseBody = await deleteResponse.json().catch(() => ({}));
     const teardownStatus = responseBody?.tenant_teardown_status;
     const teardownAttempted = responseBody?.tenant_teardown_attempted;

@@ -37,11 +37,20 @@ async function globalSetup(config: FullConfig): Promise<void> {
       );
     }
 
-    await page.goto(`${baseURL}/login`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.getByTestId('email').fill(identity.email);
-    await page.getByTestId('password').fill(identity.password);
-    await page.getByRole('button', { name: 'Continue' }).click();
+    const loginResponse = await context.request.post(`${baseURL}/api/auth/login`, {
+      data: {
+        email: identity.email,
+        password: identity.password,
+      },
+      timeout: 60_000,
+    });
+    if (!loginResponse.ok()) {
+      throw new Error(
+        `Smoke setup login failed with status=${loginResponse.status()} body=${await loginResponse.text()}`,
+      );
+    }
 
+    await page.goto(`${baseURL}/c/new`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await page.waitForURL(/\/c\/new$/, { timeout: 120_000 });
     await page.getByTestId('nav-user').waitFor({ state: 'visible', timeout: 30_000 });
     await context.storageState({ path: smokeStorageStatePath });
