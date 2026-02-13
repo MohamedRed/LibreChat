@@ -5,7 +5,7 @@ const baseURL = process.env.E2E_BASE_URL || 'https://liive.app';
 
 export default defineConfig({
   testDir: 'specs/',
-  testMatch: /smoke\.prod\.spec\.ts$/,
+  testMatch: /smoke(\..+)?\.prod\.spec\.ts$/,
   outputDir: 'specs/.test-results-smoke',
   timeout: 15 * 60_000,
   fullyParallel: false,
