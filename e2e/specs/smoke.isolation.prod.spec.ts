@@ -9,6 +9,17 @@ const CHAT_API_PATH_PREFIX = '/api/agents/chat/';
 const NO_CONTEXT_PATTERN =
   /je ne sais pas|i don't know|cannot access external|n'ai pas acc[eè]s [àa] des sites externes|sources index[eé]es ne contiennent/i;
 
+async function ensureUiSession(page: Page, email: string, password: string) {
+  const loginResponse = await page.context().request.post('/api/auth/login', {
+    data: { email, password },
+    timeout: 60_000,
+  });
+  expect(loginResponse.ok(), `UI login failed: ${await loginResponse.text()}`).toBeTruthy();
+  await page.goto('/c/new', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await page.waitForURL(/\/c\/new$/, { timeout: 120_000 });
+  await page.getByTestId('nav-user').waitFor({ state: 'visible', timeout: 30_000 });
+}
+
 type TenantIdentity = {
   email: string;
   password: string;
@@ -214,10 +225,13 @@ test.describe('Production smoke - tenant isolation', () => {
 
     const tokenA = globalIdentity?.authToken;
     expect(tokenA).toBeTruthy();
+    expect(globalIdentity?.email).toBeTruthy();
+    expect(globalIdentity?.password).toBeTruthy();
 
     await configureSite(page.request, String(tokenA), SITE_A);
     const jobA = await runCrawl(page.request, String(tokenA));
     await waitForCrawlSuccess(page.request, jobA, String(tokenA));
+    await ensureUiSession(page, String(globalIdentity?.email), String(globalIdentity?.password));
 
     const streamA = await askThroughUiAndGetStreamBody(
       page,

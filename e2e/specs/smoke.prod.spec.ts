@@ -7,6 +7,17 @@ const CITATION_URL_PATTERN = /https?:\/\/[^\s)]+/i;
 const NO_CONTEXT_PATTERN =
   /je ne sais pas|i don't know|cannot access external|n'ai pas acc[eè]s [àa] des sites externes|sources index[eé]es ne contiennent/i;
 
+async function ensureUiSession(page: Page, email: string, password: string) {
+  const loginResponse = await page.context().request.post('/api/auth/login', {
+    data: { email, password },
+    timeout: 60_000,
+  });
+  expect(loginResponse.ok(), `UI login failed: ${await loginResponse.text()}`).toBeTruthy();
+  await page.goto('/c/new', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  await page.waitForURL(/\/c\/new$/, { timeout: 120_000 });
+  await page.getByTestId('nav-user').waitFor({ state: 'visible', timeout: 30_000 });
+}
+
 async function configureSite(request: APIRequestContext, authToken: string) {
   const saveResponse = await request.post('/api/tenant/site', {
     headers: { Authorization: `Bearer ${authToken}` },
@@ -67,11 +78,13 @@ test.describe('Production smoke', () => {
     const identity = readSmokeIdentity();
     const authToken = identity?.authToken;
     expect(authToken).toBeTruthy();
+    expect(identity?.email).toBeTruthy();
+    expect(identity?.password).toBeTruthy();
     await configureSite(page.request, String(authToken));
     const jobId = await runCrawl(page.request, String(authToken));
     await waitForCrawlSuccess(page.request, jobId, String(authToken));
 
-    await page.goto('/c/new', { waitUntil: 'domcontentloaded' });
+    await ensureUiSession(page, String(identity?.email), String(identity?.password));
     const endpointMenu = page.locator('#new-conversation-menu');
     if (await endpointMenu.isVisible()) {
       await endpointMenu.click();
