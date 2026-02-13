@@ -40,8 +40,53 @@ export const useCreateTenantBillingCheckout = (
 export const useDiscoverTenantActions = (
   options?: t.MutationOptions<t.TTenantActionJobResponse, Error, t.TTenantActionsDiscoverRequest>,
 ): UseMutationResult<t.TTenantActionJobResponse, Error, t.TTenantActionsDiscoverRequest> => {
-  return useMutation((payload: t.TTenantActionsDiscoverRequest) => dataService.discoverTenantActions(payload), {
-    onSuccess: (data, variables, context) => options?.onSuccess?.(data, variables, context),
+  return useMutation(
+    (payload: t.TTenantActionsDiscoverRequest) => dataService.discoverTenantActions(payload),
+    {
+      onSuccess: (data, variables, context) => options?.onSuccess?.(data, variables, context),
+      onError: (error, variables, context) => options?.onError?.(error, variables, context),
+      onMutate: (variables) => options?.onMutate?.(variables),
+    },
+  );
+};
+
+export const useUpdateTenantWidgetConfig = (
+  options?: t.MutationOptions<t.TTenantWidgetConfig, Error, t.TTenantWidgetConfigUpdateRequest>,
+): UseMutationResult<t.TTenantWidgetConfig, Error, t.TTenantWidgetConfigUpdateRequest> => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    (payload: t.TTenantWidgetConfigUpdateRequest) => dataService.updateTenantWidgetConfig(payload),
+    {
+      onSuccess: (data, variables, context) => {
+        queryClient.setQueryData([QueryKeys.tenantWidgetConfig], data);
+        return options?.onSuccess?.(data, variables, context);
+      },
+      onError: (error, variables, context) => options?.onError?.(error, variables, context),
+      onMutate: (variables) => options?.onMutate?.(variables),
+    },
+  );
+};
+
+export const useRotateTenantWidgetKey = (
+  options?: t.MutationOptions<t.TTenantWidgetRotateResponse, Error, void>,
+): UseMutationResult<t.TTenantWidgetRotateResponse, Error, void> => {
+  const queryClient = useQueryClient();
+  return useMutation(() => dataService.rotateTenantWidgetKey(), {
+    onSuccess: (data, variables, context) => {
+      queryClient.setQueryData(
+        [QueryKeys.tenantWidgetConfig],
+        (current: t.TTenantWidgetConfig | undefined) => {
+          if (!current) {
+            return current;
+          }
+          return {
+            ...current,
+            site_key: data.site_key,
+          };
+        },
+      );
+      return options?.onSuccess?.(data, variables, context);
+    },
     onError: (error, variables, context) => options?.onError?.(error, variables, context),
     onMutate: (variables) => options?.onMutate?.(variables),
   });

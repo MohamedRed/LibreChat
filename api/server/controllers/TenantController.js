@@ -76,7 +76,10 @@ const createBillingCheckout = async (req, res) => {
         message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
       });
     }
-    logger.error('[createBillingCheckout] Failed to create checkout session', err?.response?.data || err);
+    logger.error(
+      '[createBillingCheckout] Failed to create checkout session',
+      err?.response?.data || err,
+    );
     return res.status(502).json({ message: 'Failed to start billing' });
   }
 };
@@ -153,7 +156,10 @@ const discoverTenantActions = async (req, res) => {
         message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
       });
     }
-    logger.error('[discoverTenantActions] Failed to enqueue action discovery', err?.response?.data || err);
+    logger.error(
+      '[discoverTenantActions] Failed to enqueue action discovery',
+      err?.response?.data || err,
+    );
     return res.status(502).json({ message: 'Failed to discover actions' });
   }
 };
@@ -214,16 +220,13 @@ const getTenantCrawlStatusById = async (req, res) => {
   }
 
   try {
-    const response = await axios.get(
-      `${controlPlaneUrl}/api/crawl/status/${jobId}`,
-      {
-        headers: {
-          Authorization: `Bearer ${controlPlaneApiKey}`,
-          'X-Tenant-ID': tenantId,
-        },
-        timeout: 15000,
+    const response = await axios.get(`${controlPlaneUrl}/api/crawl/status/${jobId}`, {
+      headers: {
+        Authorization: `Bearer ${controlPlaneApiKey}`,
+        'X-Tenant-ID': tenantId,
       },
-    );
+      timeout: 15000,
+    });
     return res.json(response.data);
   } catch (err) {
     const status = err?.response?.status;
@@ -232,7 +235,10 @@ const getTenantCrawlStatusById = async (req, res) => {
         message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
       });
     }
-    logger.error('[getTenantCrawlStatusById] Failed to fetch crawl status', err?.response?.data || err);
+    logger.error(
+      '[getTenantCrawlStatusById] Failed to fetch crawl status',
+      err?.response?.data || err,
+    );
     return res.status(502).json({ message: 'Failed to fetch crawl status' });
   }
 };
@@ -278,13 +284,15 @@ const upsertTenantSite = async (req, res) => {
     };
     let response;
     if (existing?.id) {
-      response = await axios.put(
-        `${controlPlaneUrl}/api/sites/${existing.id}`,
-        payload,
-        { headers, timeout: 15000 },
-      );
+      response = await axios.put(`${controlPlaneUrl}/api/sites/${existing.id}`, payload, {
+        headers,
+        timeout: 15000,
+      });
     } else {
-      response = await axios.post(`${controlPlaneUrl}/api/sites`, payload, { headers, timeout: 15000 });
+      response = await axios.post(`${controlPlaneUrl}/api/sites`, payload, {
+        headers,
+        timeout: 15000,
+      });
     }
     return res.json(response.data);
   } catch (err) {
@@ -328,6 +336,110 @@ const runTenantCrawl = async (req, res) => {
   }
 };
 
+const getTenantWidgetConfig = async (req, res) => {
+  if (!controlPlaneUrl || !controlPlaneApiKey) {
+    return res.status(500).json({ message: 'Control plane not configured' });
+  }
+
+  const { tenantId, error } = requireTenantId(req);
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  try {
+    const response = await axios.get(`${controlPlaneUrl}/api/widget/config`, {
+      headers: {
+        Authorization: `Bearer ${controlPlaneApiKey}`,
+        'X-Tenant-ID': tenantId,
+      },
+      timeout: 15000,
+    });
+    return res.json(response.data);
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status && status >= 400 && status < 500) {
+      return res.status(status).json({
+        message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
+      });
+    }
+    logger.error(
+      '[getTenantWidgetConfig] Failed to fetch widget config',
+      err?.response?.data || err,
+    );
+    return res.status(502).json({ message: 'Failed to fetch widget config' });
+  }
+};
+
+const updateTenantWidgetConfig = async (req, res) => {
+  if (!controlPlaneUrl || !controlPlaneApiKey) {
+    return res.status(500).json({ message: 'Control plane not configured' });
+  }
+
+  const { tenantId, error } = requireTenantId(req);
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  const payload = req.body ?? {};
+  try {
+    const response = await axios.put(`${controlPlaneUrl}/api/widget/config`, payload, {
+      headers: {
+        Authorization: `Bearer ${controlPlaneApiKey}`,
+        'X-Tenant-ID': tenantId,
+      },
+      timeout: 15000,
+    });
+    return res.json(response.data);
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status && status >= 400 && status < 500) {
+      return res.status(status).json({
+        message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
+      });
+    }
+    logger.error(
+      '[updateTenantWidgetConfig] Failed to update widget config',
+      err?.response?.data || err,
+    );
+    return res.status(502).json({ message: 'Failed to update widget config' });
+  }
+};
+
+const rotateTenantWidgetKey = async (req, res) => {
+  if (!controlPlaneUrl || !controlPlaneApiKey) {
+    return res.status(500).json({ message: 'Control plane not configured' });
+  }
+
+  const { tenantId, error } = requireTenantId(req);
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  try {
+    const response = await axios.post(
+      `${controlPlaneUrl}/api/widget/config/rotate-key`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${controlPlaneApiKey}`,
+          'X-Tenant-ID': tenantId,
+        },
+        timeout: 15000,
+      },
+    );
+    return res.json(response.data);
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status && status >= 400 && status < 500) {
+      return res.status(status).json({
+        message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
+      });
+    }
+    logger.error('[rotateTenantWidgetKey] Failed to rotate widget key', err?.response?.data || err);
+    return res.status(502).json({ message: 'Failed to rotate widget key' });
+  }
+};
+
 module.exports = {
   getTenantSite,
   upsertTenantSite,
@@ -337,4 +449,7 @@ module.exports = {
   discoverTenantActions,
   getTenantCrawlStatus,
   getTenantCrawlStatusById,
+  getTenantWidgetConfig,
+  updateTenantWidgetConfig,
+  rotateTenantWidgetKey,
 };

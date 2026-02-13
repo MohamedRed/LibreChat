@@ -754,3 +754,22 @@ export type TTenantActionJobResponse = {
   status: string;
   job_type?: string;
 };
+
+export type TTenantWidgetConfig = {
+  site_id: number;
+  site_key: string;
+  enabled: boolean;
+  settings?: Record<string, unknown> | null;
+  embed_script_url: string;
+  frame_url: string;
+};
+
+export type TTenantWidgetConfigUpdateRequest = {
+  enabled?: boolean;
+  settings?: Record<string, unknown> | null;
+};
+
+export type TTenantWidgetRotateResponse = {
+  site_id: number;
+  site_key: string;
+};

@@ -7,7 +7,10 @@ import {
   useGetTenantActions,
   useGetTenantCrawlStatus,
   useGetTenantSite,
+  useGetTenantWidgetConfig,
+  useRotateTenantWidgetKey,
   useRunTenantCrawl,
+  useUpdateTenantWidgetConfig,
   useUpsertTenantSite,
 } from '~/data-provider';
 import { useLocalize } from '~/hooks';
@@ -20,6 +23,8 @@ function Site() {
   const [sitemapUrl, setSitemapUrl] = useState('');
   const [siteId, setSiteId] = useState<number | undefined>(undefined);
   const [pollCrawlStatus, setPollCrawlStatus] = useState(false);
+  const [widgetEnabled, setWidgetEnabled] = useState(true);
+
   const siteQuery = useGetTenantSite({ retry: false });
   const siteData = siteQuery.data;
   const actionsParams = useMemo(
@@ -41,6 +46,8 @@ function Site() {
       return pollCrawlStatus ? 10000 : false;
     },
   });
+  const widgetConfigQuery = useGetTenantWidgetConfig({ enabled: typeof siteId === 'number' });
+  const widgetConfig = widgetConfigQuery.data;
 
   useEffect(() => {
     if (siteData) {
@@ -62,9 +69,16 @@ function Site() {
     }
   }, [pollCrawlStatus, crawlStatusQuery.data?.status]);
 
+  useEffect(() => {
+    if (widgetConfig) {
+      setWidgetEnabled(Boolean(widgetConfig.enabled));
+    }
+  }, [widgetConfig]);
+
   const saveSite = useUpsertTenantSite({
-    onSuccess: () => {
+    onSuccess: async () => {
       showToast({ message: localize('com_site_saved') });
+      await widgetConfigQuery.refetch();
     },
     onError: () => {
       showToast({ message: localize('com_site_save_error'), status: NotificationSeverity.ERROR });
@@ -85,7 +99,10 @@ function Site() {
           status: NotificationSeverity.WARNING,
         });
       } else {
-        showToast({ message: localize('com_site_crawl_error'), status: NotificationSeverity.ERROR });
+        showToast({
+          message: localize('com_site_crawl_error'),
+          status: NotificationSeverity.ERROR,
+        });
       }
     },
   });
@@ -102,7 +119,10 @@ function Site() {
       });
     },
     onError: () => {
-      showToast({ message: localize('com_site_billing_error'), status: NotificationSeverity.ERROR });
+      showToast({
+        message: localize('com_site_billing_error'),
+        status: NotificationSeverity.ERROR,
+      });
     },
   });
 
@@ -112,7 +132,36 @@ function Site() {
       actionsQuery.refetch();
     },
     onError: () => {
-      showToast({ message: localize('com_site_actions_discovery_error'), status: NotificationSeverity.ERROR });
+      showToast({
+        message: localize('com_site_actions_discovery_error'),
+        status: NotificationSeverity.ERROR,
+      });
+    },
+  });
+
+  const updateWidgetConfig = useUpdateTenantWidgetConfig({
+    onSuccess: (data) => {
+      setWidgetEnabled(Boolean(data.enabled));
+      showToast({ message: localize('com_site_widget_updated') });
+    },
+    onError: () => {
+      showToast({
+        message: localize('com_site_widget_update_error'),
+        status: NotificationSeverity.ERROR,
+      });
+    },
+  });
+
+  const rotateWidgetKey = useRotateTenantWidgetKey({
+    onSuccess: async () => {
+      showToast({ message: localize('com_site_widget_key_rotated') });
+      await widgetConfigQuery.refetch();
+    },
+    onError: () => {
+      showToast({
+        message: localize('com_site_widget_key_rotate_error'),
+        status: NotificationSeverity.ERROR,
+      });
     },
   });
 
@@ -121,7 +170,9 @@ function Site() {
     saveSite.isLoading ||
     runCrawl.isLoading ||
     startBilling.isLoading ||
-    discoverActions.isLoading;
+    discoverActions.isLoading ||
+    updateWidgetConfig.isLoading ||
+    rotateWidgetKey.isLoading;
   const crawlStats = (crawlStatusQuery.data?.stats || {}) as Record<string, any>;
   const visited = Number(crawlStats.visited ?? 0);
   const queue = Number(crawlStats.queue ?? 0);
@@ -130,13 +181,43 @@ function Site() {
   const skipped = Number(crawlStats.skipped ?? 0);
   const phase = String(crawlStats.phase ?? crawlStatusQuery.data?.status ?? '');
   const crawlTotal = processed + queue;
-  const crawlProgress =
-    crawlTotal > 0 ? Math.round((processed / crawlTotal) * 100) : null;
-  const ingestProgress =
-    processed > 0 ? Math.round((ingested / processed) * 100) : null;
-  const progress =
-    phase === 'ingesting' ? ingestProgress : crawlProgress;
+  const crawlProgress = crawlTotal > 0 ? Math.round((processed / crawlTotal) * 100) : null;
+  const ingestProgress = processed > 0 ? Math.round((ingested / processed) * 100) : null;
+  const progress = phase === 'ingesting' ? ingestProgress : crawlProgress;
   const isValidUrl = useMemo(() => /^https?:\/\//i.test(baseUrl.trim()), [baseUrl]);
+
+  const widgetInstallSnippet = useMemo(() => {
+    if (!widgetConfig?.site_key || !widgetConfig?.embed_script_url) {
+      return '';
+    }
+    return [
+      '<script>',
+      `  window.LiiveWidget = { siteKey: "${widgetConfig.site_key}" };`,
+      '</script>',
+      `<script async src="${widgetConfig.embed_script_url}"></script>`,
+    ].join('\n');
+  }, [widgetConfig]);
+
+  const widgetPreviewUrl = useMemo(() => {
+    if (!widgetConfig?.frame_url || !widgetConfig?.site_key) {
+      return '';
+    }
+    let host = '';
+    try {
+      host = new URL(baseUrl.trim()).hostname;
+    } catch (_error) {
+      host = '';
+    }
+    if (!host) {
+      return '';
+    }
+    const params = new URLSearchParams({
+      site_key: widgetConfig.site_key,
+      origin_host: host,
+      page_url: baseUrl.trim(),
+    });
+    return `${widgetConfig.frame_url}?${params.toString()}`;
+  }, [widgetConfig, baseUrl]);
 
   const handleSave = () => {
     if (!isValidUrl) {
@@ -166,6 +247,29 @@ function Site() {
       return;
     }
     discoverActions.mutate({ url: targetUrl, site_id: siteId });
+  };
+
+  const handleToggleWidget = () => {
+    updateWidgetConfig.mutate({ enabled: !widgetEnabled });
+  };
+
+  const handleRotateWidgetKey = () => {
+    rotateWidgetKey.mutate();
+  };
+
+  const handleCopySnippet = async () => {
+    if (!widgetInstallSnippet) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(widgetInstallSnippet);
+      showToast({ message: localize('com_site_widget_snippet_copied') });
+    } catch (_error) {
+      showToast({
+        message: localize('com_site_widget_snippet_copy_error'),
+        status: NotificationSeverity.ERROR,
+      });
+    }
   };
 
   const verifiedLabel =
@@ -238,7 +342,11 @@ function Site() {
           aria-label={localize('com_site_start_billing')}
           data-testid="tenant-site-start-billing"
         >
-          {startBilling.isLoading ? <Spinner className="h-4 w-4" /> : localize('com_site_start_billing')}
+          {startBilling.isLoading ? (
+            <Spinner className="h-4 w-4" />
+          ) : (
+            localize('com_site_start_billing')
+          )}
         </Button>
         <Button
           variant="outline"
@@ -247,12 +355,18 @@ function Site() {
           aria-label={localize('com_site_actions_discover')}
           data-testid="tenant-site-discover-actions"
         >
-          {discoverActions.isLoading ? <Spinner className="h-4 w-4" /> : localize('com_site_actions_discover')}
+          {discoverActions.isLoading ? (
+            <Spinner className="h-4 w-4" />
+          ) : (
+            localize('com_site_actions_discover')
+          )}
         </Button>
       </div>
 
       <div className="mt-2 flex flex-col gap-2 text-xs text-text-secondary">
-        <div className="text-sm font-medium text-text-primary">{localize('com_site_crawl_status_title')}</div>
+        <div className="text-sm font-medium text-text-primary">
+          {localize('com_site_crawl_status_title')}
+        </div>
         {crawlStatusQuery.isFetching && <Spinner className="h-4 w-4" />}
         {!crawlStatusQuery.isFetching && !crawlStatusQuery.data && (
           <div>{localize('com_site_crawl_status_empty')}</div>
@@ -276,16 +390,13 @@ function Site() {
                   {localize('com_site_crawl_progress', { 0: `${progress}%` })}
                 </div>
                 <div
-                  className="mt-1 h-2 w-full rounded bg-border-medium/60"
+                  className="bg-border-medium/60 mt-1 h-2 w-full rounded"
                   role="progressbar"
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={progress}
                 >
-                  <div
-                    className="h-2 rounded bg-primary"
-                    style={{ width: `${progress}%` }}
-                  />
+                  <div className="h-2 rounded bg-primary" style={{ width: `${progress}%` }} />
                 </div>
               </>
             )}
@@ -310,16 +421,16 @@ function Site() {
       </div>
 
       <div className="mt-2 flex flex-col gap-2 text-xs text-text-secondary">
-        <div className="text-sm font-medium text-text-primary">{localize('com_site_actions_title')}</div>
+        <div className="text-sm font-medium text-text-primary">
+          {localize('com_site_actions_title')}
+        </div>
         {actionsQuery.isFetching && <Spinner className="h-4 w-4" />}
         {!actionsQuery.isFetching && (actionsQuery.data?.length ?? 0) === 0 && (
           <div>{localize('com_site_actions_empty')}</div>
         )}
         {(actionsQuery.data ?? []).map((action) => (
           <div key={action.id} className="rounded border border-border-medium p-2">
-            <div className="text-text-primary">
-              {action.label || action.action_type}
-            </div>
+            <div className="text-text-primary">{action.label || action.action_type}</div>
             <div className="text-text-secondary">{action.url}</div>
             <div className="text-text-secondary">
               {action.source} · {action.method || 'N/A'}
@@ -327,6 +438,75 @@ function Site() {
             {action.endpoint && <div className="text-text-secondary">{action.endpoint}</div>}
           </div>
         ))}
+      </div>
+
+      <div className="mt-2 flex flex-col gap-2 text-xs text-text-secondary">
+        <div className="text-sm font-medium text-text-primary">
+          {localize('com_site_widget_title')}
+        </div>
+        {widgetConfigQuery.isFetching && <Spinner className="h-4 w-4" />}
+        {!widgetConfigQuery.isFetching && !widgetConfig && (
+          <div>{localize('com_site_widget_empty')}</div>
+        )}
+        {widgetConfig && (
+          <>
+            <div className="rounded border border-border-medium p-2">
+              <div className="text-text-secondary">{localize('com_site_widget_site_key')}</div>
+              <div className="mt-1 break-all font-mono text-xs text-text-primary">
+                {widgetConfig.site_key}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={handleToggleWidget}
+                disabled={isLoading}
+                data-testid="tenant-widget-toggle"
+              >
+                {widgetEnabled
+                  ? localize('com_site_widget_disable')
+                  : localize('com_site_widget_enable')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRotateWidgetKey}
+                disabled={isLoading}
+                data-testid="tenant-widget-rotate"
+              >
+                {rotateWidgetKey.isLoading ? (
+                  <Spinner className="h-4 w-4" />
+                ) : (
+                  localize('com_site_widget_rotate_key')
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleCopySnippet}
+                disabled={isLoading || !widgetInstallSnippet}
+                data-testid="tenant-widget-copy-snippet"
+              >
+                {localize('com_site_widget_copy_snippet')}
+              </Button>
+            </div>
+            <div className="rounded border border-border-medium p-2">
+              <div className="text-text-secondary">
+                {localize('com_site_widget_install_snippet')}
+              </div>
+              <pre className="mt-1 whitespace-pre-wrap break-all font-mono text-xs text-text-primary">
+                {widgetInstallSnippet}
+              </pre>
+            </div>
+            {widgetPreviewUrl && (
+              <div className="rounded border border-border-medium p-2">
+                <div className="text-text-secondary">{localize('com_site_widget_preview_url')}</div>
+                <div className="mt-1 break-all font-mono text-xs text-text-primary">
+                  {widgetPreviewUrl}
+                </div>
+              </div>
+            )}
+            <div>{localize('com_site_widget_origin_policy_note')}</div>
+          </>
+        )}
       </div>
     </div>
   );

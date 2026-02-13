@@ -962,7 +962,9 @@ export function upsertTenantSite(payload: t.TTenantSiteRequest): Promise<t.TTena
   return request.post(endpoints.tenantSite(), payload);
 }
 
-export function runTenantCrawl(payload: t.TTenantCrawlRequest = {}): Promise<t.TTenantCrawlResponse> {
+export function runTenantCrawl(
+  payload: t.TTenantCrawlRequest = {},
+): Promise<t.TTenantCrawlResponse> {
   return request.post(endpoints.tenantCrawl(), payload);
 }
 
@@ -972,9 +974,7 @@ export function getTenantCrawlStatus(
   return request.get(endpoints.tenantCrawlStatus(params));
 }
 
-export function getTenantCrawlStatusById(
-  jobId: number,
-): Promise<t.TTenantCrawlStatusResponse> {
+export function getTenantCrawlStatusById(jobId: number): Promise<t.TTenantCrawlStatusResponse> {
   return request.get(endpoints.tenantCrawlStatusById(jobId));
 }
 
@@ -982,9 +982,7 @@ export function createTenantBillingCheckout(): Promise<t.TTenantBillingCheckoutR
   return request.post(endpoints.tenantBillingCheckout(), {});
 }
 
-export function getTenantActions(
-  params: t.TTenantActionsQuery = {},
-): Promise<t.TTenantAction[]> {
+export function getTenantActions(params: t.TTenantActionsQuery = {}): Promise<t.TTenantAction[]> {
   return request.get(endpoints.tenantActions(params));
 }
 
@@ -992,6 +990,20 @@ export function discoverTenantActions(
   payload: t.TTenantActionsDiscoverRequest,
 ): Promise<t.TTenantActionJobResponse> {
   return request.post(endpoints.tenantActionsDiscover(), payload);
+}
+
+export function getTenantWidgetConfig(): Promise<t.TTenantWidgetConfig> {
+  return request.get(endpoints.tenantWidgetConfig());
+}
+
+export function updateTenantWidgetConfig(
+  payload: t.TTenantWidgetConfigUpdateRequest,
+): Promise<t.TTenantWidgetConfig> {
+  return request.put(endpoints.tenantWidgetConfig(), payload);
+}
+
+export function rotateTenantWidgetKey(): Promise<t.TTenantWidgetRotateResponse> {
+  return request.post(endpoints.tenantWidgetRotateKey(), {});
 }
 
 export function updateFeedback(
