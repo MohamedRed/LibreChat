@@ -51,6 +51,8 @@ export const tenantBillingCheckout = () => `${tenantRoot}/billing/checkout`;
 export const tenantActions = (params: { site_id?: number; url?: string } = {}) =>
   `${tenantRoot}/actions${buildQuery(params)}`;
 export const tenantActionsDiscover = () => `${tenantRoot}/actions/discover`;
+export const tenantWidgetConfig = () => `${tenantRoot}/widget/config`;
+export const tenantWidgetRotateKey = () => `${tenantRoot}/widget/config/rotate-key`;
 
 export const balance = () => `${BASE_URL}/api/balance`;
 

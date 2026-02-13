@@ -66,3 +66,29 @@ export const useGetTenantCrawlStatus = (
     },
   );
 };
+
+export const useGetTenantWidgetConfig = (
+  config?: UseQueryOptions<t.TTenantWidgetConfig | null>,
+): QueryObserverResult<t.TTenantWidgetConfig | null> => {
+  const queriesEnabled = useRecoilValue<boolean>(store.queriesEnabled);
+  return useQuery<t.TTenantWidgetConfig | null>(
+    [QueryKeys.tenantWidgetConfig],
+    async () => {
+      try {
+        return await dataService.getTenantWidgetConfig();
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          return null;
+        }
+        throw err;
+      }
+    },
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      ...config,
+      enabled: (config?.enabled ?? true) === true && queriesEnabled,
+    },
+  );
+};
