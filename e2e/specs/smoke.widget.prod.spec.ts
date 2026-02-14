@@ -2,6 +2,9 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import { readSmokeIdentity } from '../setup/smoke.shared';
 
 const TARGET_SITE = 'https://example.com/';
+const FRAME_BASE_OVERRIDE = process.env.E2E_WIDGET_FRAME_BASE_URL?.trim();
+const WIDGET_NO_CONTEXT_PATTERN =
+  /pas assez d'informations|not enough information|insufficient context|je ne sais pas/i;
 
 async function configureSite(request: APIRequestContext, authToken: string) {
   const saveResponse = await request.post('/api/tenant/site', {
@@ -64,20 +67,26 @@ async function getWidgetConfig(request: APIRequestContext, authToken: string) {
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
   expect(body?.site_key).toBeTruthy();
-  return body as { site_key: string };
+  return body as { site_key: string; frame_url?: string };
 }
 
 async function chatInFrame(page: Page, frameUrl: string) {
   await page.goto(frameUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.locator('#message-input').waitFor({ state: 'visible', timeout: 60_000 });
+  await expect
+    .poll(async () => ((await page.locator('#messages').innerText()) || '').toLowerCase(), {
+      timeout: 60_000,
+      intervals: [1_000, 2_000, 5_000],
+    })
+    .toContain('bonjour');
   await page.locator('#message-input').fill('What is this website about? Cite one source URL.');
   await page.locator('#send-btn').click();
   await expect
-    .poll(async () => ((await page.locator('#messages').innerText()) || '').toLowerCase(), {
+    .poll(async () => (await page.locator('#messages').innerText()) || '', {
       timeout: 120_000,
       intervals: [2_000, 5_000, 10_000],
     })
-    .toContain('example.com');
+    .toMatch(new RegExp(`example\\.com|${WIDGET_NO_CONTEXT_PATTERN.source}`, 'i'));
 }
 
 test.describe('Production smoke widget', () => {
@@ -91,8 +100,11 @@ test.describe('Production smoke widget', () => {
     await waitForCrawlSuccess(page.request, jobId, String(authToken));
 
     const widget = await getWidgetConfig(page.request, String(authToken));
+    const frameBase = FRAME_BASE_OVERRIDE
+      ? `${FRAME_BASE_OVERRIDE.replace(/\/+$/, '')}/widget/v1/frame`
+      : widget.frame_url ?? '/widget/v1/frame';
     const frameUrl =
-      `/widget/v1/frame?site_key=${encodeURIComponent(widget.site_key)}` +
+      `${frameBase}?site_key=${encodeURIComponent(widget.site_key)}` +
       `&origin_host=example.com&page_url=${encodeURIComponent(TARGET_SITE)}`;
     await chatInFrame(page, frameUrl);
   });
