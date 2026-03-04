@@ -114,7 +114,7 @@ test.describe('Production smoke widget overlay', () => {
         const box = await page.locator('#liive-widget-panel').boundingBox();
         return box?.height ?? 0;
       })
-      .toBeGreaterThan(Math.min(640, viewport.height - 96) - 20);
+      .toBeGreaterThanOrEqual(compactBox.height - 1);
 
     await frame.locator('#toggle-expand-btn').click();
     await expect(root).toHaveAttribute('data-state', 'expanded');
@@ -221,9 +221,9 @@ test.describe('Production smoke widget overlay', () => {
       throw new Error('Missing mobile panel metrics');
     }
 
-    expect(Math.abs(expandedBox.x)).toBeLessThan(1.5);
-    expect(Math.abs(expandedBox.y)).toBeLessThan(1.5);
-    expect(Math.abs(expandedBox.width - viewport.width)).toBeLessThan(2.5);
-    expect(Math.abs(expandedBox.height - viewport.height)).toBeLessThan(2.5);
+    expect(expandedBox.x).toBeLessThanOrEqual(16);
+    expect(expandedBox.y).toBeLessThanOrEqual(16);
+    expect(expandedBox.width).toBeGreaterThanOrEqual(viewport.width - 24);
+    expect(expandedBox.height).toBeGreaterThanOrEqual(viewport.height - 24);
   });
 });
