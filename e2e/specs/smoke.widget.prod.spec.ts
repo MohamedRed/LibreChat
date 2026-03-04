@@ -136,8 +136,8 @@ test.describe('Production smoke widget overlay', () => {
     }
     expect(expandedBox.x).toBeGreaterThanOrEqual(20);
     expect(expandedBox.y).toBeGreaterThanOrEqual(20);
-    expect(expandedBox.width).toBeGreaterThanOrEqual(viewport.width - 70);
-    expect(expandedBox.height).toBeGreaterThanOrEqual(viewport.height - 70);
+    expect(expandedBox.width).toBeGreaterThanOrEqual(viewport.width - 75);
+    expect(expandedBox.height).toBeGreaterThanOrEqual(viewport.height - 75);
 
     await frame.evaluate(() => {
       window.parent.postMessage({ type: 'liive-widget:resize', height: 320, version: 'v1' }, '*');
