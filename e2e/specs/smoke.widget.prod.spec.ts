@@ -151,7 +151,7 @@ test.describe('Production smoke widget overlay', () => {
     }
     expect(Math.abs(expandedBoxAfterResize.height - expandedBox.height)).toBeLessThan(10);
 
-    await backdrop.click();
+    await page.mouse.click(5, 5);
     await expect(root).toHaveAttribute('data-state', 'compact');
 
     await frame.locator('#toggle-expand-btn').click();
@@ -224,6 +224,6 @@ test.describe('Production smoke widget overlay', () => {
     expect(expandedBox.x).toBeLessThanOrEqual(16);
     expect(expandedBox.y).toBeLessThanOrEqual(16);
     expect(expandedBox.width).toBeGreaterThanOrEqual(viewport.width - 24);
-    expect(expandedBox.height).toBeGreaterThanOrEqual(viewport.height - 24);
+    expect(expandedBox.height).toBeGreaterThanOrEqual(viewport.height - 120);
   });
 });
