@@ -6,9 +6,12 @@ import {
   useDiscoverTenantActions,
   useGetTenantActions,
   useGetTenantCrawlStatus,
+  useGetTenantReliabilityBenchmarkRuns,
+  useGetTenantReliabilitySummary,
   useGetTenantSite,
   useGetTenantWidgetConfig,
   useRotateTenantWidgetKey,
+  useRunTenantReliabilityBenchmark,
   useRunTenantCrawl,
   useUpdateTenantWidgetConfig,
   useUpsertTenantSite,
@@ -48,6 +51,17 @@ function Site() {
   });
   const widgetConfigQuery = useGetTenantWidgetConfig({ enabled: typeof siteId === 'number' });
   const widgetConfig = widgetConfigQuery.data;
+  const reliabilitySummaryQuery = useGetTenantReliabilitySummary({
+    enabled: typeof siteId === 'number',
+    refetchInterval: 30000,
+  });
+  const reliabilityRunsQuery = useGetTenantReliabilityBenchmarkRuns(
+    { limit: 5 },
+    {
+      enabled: typeof siteId === 'number',
+      refetchInterval: 30000,
+    },
+  );
 
   useEffect(() => {
     if (siteData) {
@@ -165,6 +179,20 @@ function Site() {
     },
   });
 
+  const runReliabilityBenchmark = useRunTenantReliabilityBenchmark({
+    onSuccess: () => {
+      showToast({ message: localize('com_site_reliability_benchmark_started') });
+      reliabilitySummaryQuery.refetch();
+      reliabilityRunsQuery.refetch();
+    },
+    onError: () => {
+      showToast({
+        message: localize('com_site_reliability_benchmark_error'),
+        status: NotificationSeverity.ERROR,
+      });
+    },
+  });
+
   const isLoading =
     siteQuery.isFetching ||
     saveSite.isLoading ||
@@ -172,7 +200,8 @@ function Site() {
     startBilling.isLoading ||
     discoverActions.isLoading ||
     updateWidgetConfig.isLoading ||
-    rotateWidgetKey.isLoading;
+    rotateWidgetKey.isLoading ||
+    runReliabilityBenchmark.isLoading;
   const crawlStats = (crawlStatusQuery.data?.stats || {}) as Record<string, any>;
   const visited = Number(crawlStats.visited ?? 0);
   const queue = Number(crawlStats.queue ?? 0);
@@ -276,6 +305,8 @@ function Site() {
     siteData?.verified_at && typeof siteData.verified_at === 'string'
       ? localize('com_site_last_verified', { 0: new Date(siteData.verified_at).toLocaleString() })
       : null;
+  const reliabilitySummary = reliabilitySummaryQuery.data;
+  const reliabilityRuns = reliabilityRunsQuery.data?.runs ?? [];
 
   return (
     <div className="flex flex-col gap-4 p-2 text-sm text-text-primary">
@@ -506,6 +537,85 @@ function Site() {
             )}
             <div>{localize('com_site_widget_origin_policy_note')}</div>
           </>
+        )}
+      </div>
+
+      <div className="mt-2 flex flex-col gap-2 text-xs text-text-secondary">
+        <div className="text-sm font-medium text-text-primary">
+          {localize('com_site_reliability_title')}
+        </div>
+        {(reliabilitySummaryQuery.isFetching || reliabilityRunsQuery.isFetching) && (
+          <Spinner className="h-4 w-4" />
+        )}
+        {!reliabilitySummaryQuery.isFetching && !reliabilitySummary && (
+          <div>{localize('com_site_reliability_empty')}</div>
+        )}
+        {reliabilitySummary && (
+          <div className="rounded border border-border-medium p-2">
+            <div className="text-text-secondary">
+              {localize('com_site_reliability_verified_ratio', {
+                0: `${Math.round((reliabilitySummary.verified_claim_ratio || 0) * 100)}%`,
+              })}
+            </div>
+            <div className="text-text-secondary">
+              {localize('com_site_reliability_unsupported_ratio', {
+                0: `${Math.round((reliabilitySummary.unsupported_claim_ratio || 0) * 100)}%`,
+              })}
+            </div>
+            <div className="text-text-secondary">
+              {localize('com_site_reliability_citation_validity', {
+                0: `${Math.round((reliabilitySummary.citation_url_validity || 0) * 100)}%`,
+              })}
+            </div>
+            <div className="text-text-secondary">
+              {localize('com_site_reliability_events', {
+                0: String(reliabilitySummary.total_events || 0),
+              })}
+            </div>
+            {reliabilitySummary.latest_benchmark && (
+              <div className="mt-1 text-text-secondary">
+                {localize('com_site_reliability_latest_benchmark', {
+                  0: String(
+                    reliabilitySummary.latest_benchmark.status ||
+                      reliabilitySummary.latest_benchmark.trigger ||
+                      'unknown',
+                  ),
+                })}
+              </div>
+            )}
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => runReliabilityBenchmark.mutate({})}
+            disabled={isLoading || !siteId}
+            data-testid="tenant-reliability-run-benchmark"
+          >
+            {runReliabilityBenchmark.isLoading ? (
+              <Spinner className="h-4 w-4" />
+            ) : (
+              localize('com_site_reliability_run_benchmark')
+            )}
+          </Button>
+        </div>
+        {reliabilityRuns.length > 0 && (
+          <div className="rounded border border-border-medium p-2">
+            {reliabilityRuns.slice(0, 3).map((run: Record<string, unknown>) => {
+              const runId = String(run.run_id ?? 'n/a');
+              const status = String(run.status ?? 'unknown');
+              const startedAt = run.started_at ? new Date(String(run.started_at)).toLocaleString() : '';
+              return (
+                <div key={runId} className="mb-1 text-text-secondary last:mb-0">
+                  {localize('com_site_reliability_run_item', {
+                    0: runId,
+                    1: status,
+                    2: startedAt,
+                  })}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

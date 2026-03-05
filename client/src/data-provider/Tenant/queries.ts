@@ -92,3 +92,38 @@ export const useGetTenantWidgetConfig = (
     },
   );
 };
+
+export const useGetTenantReliabilitySummary = (
+  config?: UseQueryOptions<t.TTenantReliabilitySummary>,
+): QueryObserverResult<t.TTenantReliabilitySummary> => {
+  const queriesEnabled = useRecoilValue<boolean>(store.queriesEnabled);
+  return useQuery<t.TTenantReliabilitySummary>(
+    [QueryKeys.tenantReliabilitySummary],
+    () => dataService.getTenantReliabilitySummary(),
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      ...config,
+      enabled: (config?.enabled ?? true) === true && queriesEnabled,
+    },
+  );
+};
+
+export const useGetTenantReliabilityBenchmarkRuns = (
+  params: t.TTenantReliabilityBenchmarkRunsQuery = {},
+  config?: UseQueryOptions<t.TTenantReliabilityBenchmarkRunsResponse>,
+): QueryObserverResult<t.TTenantReliabilityBenchmarkRunsResponse> => {
+  const queriesEnabled = useRecoilValue<boolean>(store.queriesEnabled);
+  return useQuery<t.TTenantReliabilityBenchmarkRunsResponse>(
+    [QueryKeys.tenantReliabilityRuns, params],
+    () => dataService.getTenantReliabilityBenchmarkRuns(params),
+    {
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      refetchOnMount: false,
+      ...config,
+      enabled: (config?.enabled ?? true) === true && queriesEnabled,
+    },
+  );
+};

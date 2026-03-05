@@ -53,6 +53,11 @@ export const tenantActions = (params: { site_id?: number; url?: string } = {}) =
 export const tenantActionsDiscover = () => `${tenantRoot}/actions/discover`;
 export const tenantWidgetConfig = () => `${tenantRoot}/widget/config`;
 export const tenantWidgetRotateKey = () => `${tenantRoot}/widget/config/rotate-key`;
+export const tenantReliabilitySummary = () => `${tenantRoot}/reliability/summary`;
+export const tenantReliabilityBenchmarkRun = () => `${tenantRoot}/reliability/benchmark/run`;
+export const tenantReliabilityBenchmarkRuns = (params: { limit?: number } = {}) =>
+  `${tenantRoot}/reliability/benchmark/runs${buildQuery(params)}`;
+export const tenantSiteAssistantChat = () => `${tenantRoot}/site-assistant/chat`;
 
 export const balance = () => `${BASE_URL}/api/balance`;
 

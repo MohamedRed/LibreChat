@@ -440,6 +440,151 @@ const rotateTenantWidgetKey = async (req, res) => {
   }
 };
 
+const getTenantReliabilitySummary = async (req, res) => {
+  if (!controlPlaneUrl || !controlPlaneApiKey) {
+    return res.status(500).json({ message: 'Control plane not configured' });
+  }
+
+  const { tenantId, error } = requireTenantId(req);
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  try {
+    const response = await axios.get(`${controlPlaneUrl}/api/reliability/summary`, {
+      headers: {
+        Authorization: `Bearer ${controlPlaneApiKey}`,
+        'X-Tenant-ID': tenantId,
+      },
+      timeout: 15000,
+    });
+    return res.json(response.data);
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status && status >= 400 && status < 500) {
+      return res.status(status).json({
+        message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
+      });
+    }
+    logger.error(
+      '[getTenantReliabilitySummary] Failed to fetch reliability summary',
+      err?.response?.data || err,
+    );
+    return res.status(502).json({ message: 'Failed to fetch reliability summary' });
+  }
+};
+
+const runTenantReliabilityBenchmark = async (req, res) => {
+  if (!controlPlaneUrl || !controlPlaneApiKey) {
+    return res.status(500).json({ message: 'Control plane not configured' });
+  }
+
+  const { tenantId, error } = requireTenantId(req);
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  const payload = req.body ?? {};
+  try {
+    const response = await axios.post(`${controlPlaneUrl}/api/reliability/benchmark/run`, payload, {
+      headers: {
+        Authorization: `Bearer ${controlPlaneApiKey}`,
+        'X-Tenant-ID': tenantId,
+      },
+      timeout: 90000,
+    });
+    return res.json(response.data);
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status && status >= 400 && status < 500) {
+      return res.status(status).json({
+        message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
+      });
+    }
+    logger.error(
+      '[runTenantReliabilityBenchmark] Failed to run reliability benchmark',
+      err?.response?.data || err,
+    );
+    return res.status(502).json({ message: 'Failed to run reliability benchmark' });
+  }
+};
+
+const getTenantReliabilityBenchmarkRuns = async (req, res) => {
+  if (!controlPlaneUrl || !controlPlaneApiKey) {
+    return res.status(500).json({ message: 'Control plane not configured' });
+  }
+
+  const { tenantId, error } = requireTenantId(req);
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  const limit = req.query?.limit;
+  try {
+    const response = await axios.get(`${controlPlaneUrl}/api/reliability/benchmark/runs`, {
+      headers: {
+        Authorization: `Bearer ${controlPlaneApiKey}`,
+        'X-Tenant-ID': tenantId,
+      },
+      params: limit ? { limit } : undefined,
+      timeout: 15000,
+    });
+    return res.json(response.data);
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status && status >= 400 && status < 500) {
+      return res.status(status).json({
+        message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
+      });
+    }
+    logger.error(
+      '[getTenantReliabilityBenchmarkRuns] Failed to fetch reliability benchmark runs',
+      err?.response?.data || err,
+    );
+    return res.status(502).json({ message: 'Failed to fetch reliability benchmark runs' });
+  }
+};
+
+const siteAssistantChat = async (req, res) => {
+  if (!controlPlaneUrl || !controlPlaneApiKey) {
+    return res.status(500).json({ message: 'Control plane not configured' });
+  }
+
+  const { tenantId, error } = requireTenantId(req);
+  if (error) {
+    return res.status(400).json({ message: error });
+  }
+
+  const { message, site_id } = req.body ?? {};
+  if (!message || typeof message !== 'string') {
+    return res.status(400).json({ message: 'message is required' });
+  }
+
+  try {
+    const response = await axios.post(
+      `${controlPlaneUrl}/api/site-assistant/chat`,
+      { message, site_id: site_id || undefined },
+      {
+        headers: {
+          Authorization: `Bearer ${controlPlaneApiKey}`,
+          'X-Tenant-ID': tenantId,
+        },
+        timeout: 60000,
+      },
+    );
+    return res.json(response.data);
+  } catch (err) {
+    const status = err?.response?.status;
+    if (status && status >= 400 && status < 500) {
+      return res.status(status).json({
+        message: err?.response?.data?.detail || err?.response?.data?.message || 'Request failed',
+      });
+    }
+    logger.error('[siteAssistantChat] Failed to process site assistant chat', err?.response?.data || err);
+    return res.status(502).json({ message: 'Failed to process site assistant chat' });
+  }
+};
+
 module.exports = {
   getTenantSite,
   upsertTenantSite,
@@ -452,4 +597,8 @@ module.exports = {
   getTenantWidgetConfig,
   updateTenantWidgetConfig,
   rotateTenantWidgetKey,
+  getTenantReliabilitySummary,
+  runTenantReliabilityBenchmark,
+  getTenantReliabilityBenchmarkRuns,
+  siteAssistantChat,
 };

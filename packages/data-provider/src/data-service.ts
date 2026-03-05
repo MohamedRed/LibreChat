@@ -1006,6 +1006,28 @@ export function rotateTenantWidgetKey(): Promise<t.TTenantWidgetRotateResponse> 
   return request.post(endpoints.tenantWidgetRotateKey(), {});
 }
 
+export function getTenantReliabilitySummary(): Promise<t.TTenantReliabilitySummary> {
+  return request.get(endpoints.tenantReliabilitySummary());
+}
+
+export function runTenantReliabilityBenchmark(
+  payload: t.TTenantReliabilityBenchmarkRunRequest = {},
+): Promise<t.TTenantReliabilityBenchmarkRunResponse> {
+  return request.post(endpoints.tenantReliabilityBenchmarkRun(), payload);
+}
+
+export function getTenantReliabilityBenchmarkRuns(
+  params: t.TTenantReliabilityBenchmarkRunsQuery = {},
+): Promise<t.TTenantReliabilityBenchmarkRunsResponse> {
+  return request.get(endpoints.tenantReliabilityBenchmarkRuns(params));
+}
+
+export function siteAssistantChat(
+  payload: t.TSiteAssistantChatRequest,
+): Promise<t.TSiteAssistantChatResponse> {
+  return request.post(endpoints.tenantSiteAssistantChat(), payload);
+}
+
 export function updateFeedback(
   conversationId: string,
   messageId: string,

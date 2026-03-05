@@ -54,6 +54,8 @@ export enum QueryKeys {
   tenantActions = 'tenantActions',
   tenantCrawlStatus = 'tenantCrawlStatus',
   tenantWidgetConfig = 'tenantWidgetConfig',
+  tenantReliabilitySummary = 'tenantReliabilitySummary',
+  tenantReliabilityRuns = 'tenantReliabilityRuns',
   /* Memories */
   memories = 'memories',
   principalSearch = 'principalSearch',

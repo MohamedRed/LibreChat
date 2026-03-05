@@ -91,3 +91,30 @@ export const useRotateTenantWidgetKey = (
     onMutate: (variables) => options?.onMutate?.(variables),
   });
 };
+
+export const useRunTenantReliabilityBenchmark = (
+  options?: t.MutationOptions<
+    t.TTenantReliabilityBenchmarkRunResponse,
+    Error,
+    t.TTenantReliabilityBenchmarkRunRequest
+  >,
+): UseMutationResult<
+  t.TTenantReliabilityBenchmarkRunResponse,
+  Error,
+  t.TTenantReliabilityBenchmarkRunRequest
+> => {
+  const queryClient = useQueryClient();
+  return useMutation(
+    (payload: t.TTenantReliabilityBenchmarkRunRequest) =>
+      dataService.runTenantReliabilityBenchmark(payload),
+    {
+      onSuccess: (data, variables, context) => {
+        queryClient.invalidateQueries([QueryKeys.tenantReliabilitySummary]);
+        queryClient.invalidateQueries([QueryKeys.tenantReliabilityRuns]);
+        return options?.onSuccess?.(data, variables, context);
+      },
+      onError: (error, variables, context) => options?.onError?.(error, variables, context),
+      onMutate: (variables) => options?.onMutate?.(variables),
+    },
+  );
+};

@@ -773,3 +773,66 @@ export type TTenantWidgetRotateResponse = {
   site_id: number;
   site_key: string;
 };
+
+export type TGroundingSummary = {
+  mode: string;
+  score: number;
+  verified_claim_ratio: number;
+  citation_coverage: number;
+  citation_url_validity: number;
+  unsupported_claims: number;
+  action: string;
+};
+
+export type TTenantReliabilitySummary = {
+  window_days: number;
+  total_events: number;
+  verified_claim_ratio: number;
+  unsupported_claim_ratio: number;
+  citation_url_validity: number;
+  latest_benchmark?: Record<string, unknown> | null;
+};
+
+export type TTenantReliabilityBenchmarkRunRequest = {
+  case_limit?: number;
+};
+
+export type TTenantReliabilityBenchmarkRunResponse = {
+  run_id: number;
+  status: string;
+  summary?: Record<string, unknown> | null;
+};
+
+export type TTenantReliabilityBenchmarkRunsQuery = {
+  limit?: number;
+};
+
+export type TTenantReliabilityBenchmarkRunsResponse = {
+  runs: Array<Record<string, unknown>>;
+};
+
+export type TSiteAssistantChatRequest = {
+  message: string;
+  site_id?: number;
+};
+
+export type TSiteAssistantCitation = {
+  url: string;
+  title?: string | null;
+};
+
+export type TSiteAssistantAction = {
+  id: number;
+  label: string;
+  url: string;
+  endpoint?: string | null;
+  action_type: string;
+};
+
+export type TSiteAssistantChatResponse = {
+  answer: string;
+  citations: TSiteAssistantCitation[];
+  actions: TSiteAssistantAction[];
+  usage?: Record<string, unknown> | null;
+  grounding?: TGroundingSummary | null;
+};
